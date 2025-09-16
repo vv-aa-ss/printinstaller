@@ -35,6 +35,7 @@ def _excepthook(etype, value, tb):
         pass
 
 
+
 sys.excepthook = _excepthook
 
 
@@ -51,10 +52,12 @@ class _WinRegistry:
             pass
 
 
-# ───────────────────────────────── Mini-DB (настраивай под себя) ────────────────────────────────
+# ───────────────────────────────── Mini-DB────────────────────────────────
 USER_DB: Dict[str, Dict[str, str]] = {
     "KMCC36FF": {"model": "ECOSYS P3145dn", "desc": "Принтер экономистов"},
-    # "CANON719955": {"model":"MF429x", "desc":"Канцелярия"}
+    "CANON719955": {"model":"MF429x", "desc":"Офис победителей"},
+    "MF4780w": {"desc": "Офис победителей"}
+
 }
 
 # ───────────────────────────────── Сканер: настройки ────────────────────────────────────────────
@@ -270,6 +273,8 @@ def scan_one(ip: str) -> Optional[Dict]:
     if m: model = m.group(1)
 
     extra = USER_DB.get(host or "", {})
+    if not extra and model:
+        extra = USER_DB.get(model, {})
     if extra:
         model = extra.get("model", model)
         desc = extra.get("desc", "")
@@ -453,6 +458,8 @@ class ProgressWindow(QMainWindow):
         v.setContentsMargins(32, 28, 32, 24)
         v.setSpacing(18)
 
+        self._real_progress = 0  # фактический прогресс от worker
+        self._display_progress = 0  # то что показываем в QProgressBar
         self.title = QLabel("Сканируем сеть…", objectName="Title")
         self.subtitle = QLabel("Это займёт совсем немного времени", objectName="Subtle")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -467,10 +474,17 @@ class ProgressWindow(QMainWindow):
         self.hint = QLabel("Подсказка: держите ПК в сети во время поиска", objectName="Subtle")
         v.addWidget(self.hint, 0)
 
-        self._phrases = ["Собираем информацию…", "Ещё немного…", "Почти готово…"]
+        self._phrases = [
+            "Собираем информацию…",
+            "Ещё немного…",
+            "Почти готово…",
+            "Хм...как много устройств",
+            "Заканчиваю",
+            "Обрабатываю собранную информацию"
+        ]
         self._ph_idx = 0
         self._timer = QTimer(self)
-        self._timer.setInterval(1500)
+        self._timer.setInterval(2000)
         self._timer.timeout.connect(self.rotate_phrase)
         self._timer.start()
 
@@ -480,26 +494,34 @@ class ProgressWindow(QMainWindow):
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
         self.worker.start()
+        self._progress_timer = QTimer(self)
+        self._progress_timer.setInterval(300)  # каждые 300 мс
+        self._progress_timer.timeout.connect(self.smooth_progress)
+        self._progress_timer.start()
 
     def apply_theme(self):
         self.app.setStyleSheet(load_qss(self.dark))
         self.app.setFont(QFont("Segoe UI", 10))
 
     def rotate_phrase(self):
-        self._ph_idx = (self._ph_idx + 1) % len(self._phrases)
-        self.title.setText(self._phrases[self._ph_idx])
+        if self._ph_idx < len(self._phrases):
+            self.title.setText(self._phrases[self._ph_idx])
+            self._ph_idx += 1
+        else:
+            # достигли конца списка — можно остановить таймер
+            self._timer.stop()
 
     def on_status(self, text: str):
         self.statusBar().showMessage(text)
 
     def on_progress(self, done: int, total: int):
-        self.pb.setValue(int(done * 100 / max(1, total)))
+        self._real_progress = int(done * 100 / max(1, total))
 
     def on_finished(self, rows: List[Dict]):
         self._timer.stop()
         if not rows:
             QMessageBox.information(self, "Ничего не найдено",
-                                    f"Сканирование завершено: принтеров не обнаружено.\nЛог: {LOG_PATH}")
+                                    f"Сканирование завершено: принтеров не обнаружено. Можете попробовать еще раз")
         logging.info(f"on_finished: rows={len(rows)}")
         self.results = ResultsWindow(self.app, rows, self.dark)
         self.results.show()
@@ -509,6 +531,15 @@ class ProgressWindow(QMainWindow):
     def on_error(self, msg: str):
         QMessageBox.critical(self, "Ошибка сканирования", msg)
 
+    def smooth_progress(self):
+        # если фактический прогресс больше текущего отображаемого — подгоняем на шаг
+        if self._display_progress < self._real_progress:
+            self._display_progress += 4
+            self.pb.setValue(self._display_progress)
+        elif self._real_progress == 100:
+            self._display_progress = 100
+            self.pb.setValue(100)
+            self._progress_timer.stop()
 
 # ───────────────────────────────── Результаты (современная таблица) ────────────────────────────
 class ResultsWindow(QMainWindow):
