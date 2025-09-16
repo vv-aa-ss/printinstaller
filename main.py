@@ -11,7 +11,7 @@ from PyQt6.QtGui import QPixmap, QFont
 from PyQt6.QtWidgets import (
     QApplication, QSplashScreen, QMainWindow, QWidget, QVBoxLayout, QLabel,
     QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton,
-    QMessageBox, QLineEdit, QHBoxLayout, QFrame, QScrollArea, QSizePolicy
+    QMessageBox, QLineEdit, QHBoxLayout, QFrame, QSizePolicy
 )
 
 LOG_PATH = os.path.join(tempfile.gettempdir(),
@@ -29,7 +29,6 @@ logging.basicConfig(
 def _excepthook(etype, value, tb):
     logging.critical("UNCAUGHT", exc_info=(etype, value, tb))
     try:
-        from PyQt6.QtWidgets import QMessageBox
         QMessageBox.critical(None, "Критическая ошибка",
                              f"Произошла неперехваченная ошибка.\n\n{value}\n\nЛог: {LOG_PATH}")
     except Exception:
@@ -40,12 +39,12 @@ sys.excepthook = _excepthook
 
 
 class _WinRegistry:
+    """Держим ссылки на окна, чтобы GC их не прибил преждевременно."""
     keep: list = []
 
     @classmethod
     def add(cls, w):
         cls.keep.append(w)
-        # удаляем из реестра после закрытия окна
         try:
             w.destroyed.connect(lambda *_: cls.keep.remove(w) if w in cls.keep else None)
         except Exception:
@@ -94,7 +93,7 @@ def run_cmd_silent(cmd: List[str], timeout: Optional[int] = None) -> str:
     except subprocess.CalledProcessError as e:
         logging.warning(f"cmd fail rc={e.returncode}: {cmd}\n{e.stdout}")
         return e.stdout or ""
-    except Exception as e:
+    except Exception:
         logging.exception(f"cmd exception: {cmd}")
         return ""
 
@@ -137,8 +136,8 @@ def rdns(ip: str, timeout: float = 0.45) -> str:
         except Exception:
             name[0] = ""
 
-    t = threading.Thread(target=worker, daemon=True);
-    t.start();
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
     t.join(timeout)
     return name[0]
 
@@ -169,7 +168,7 @@ def http_fingerprint(ip: str, port: int = 80) -> Tuple[str, str]:
     try:
         s = socket.create_connection((ip, port), timeout=HTTP_TIMEOUT)
         s.sendall(b"GET / HTTP/1.1\r\nHost: %b\r\nUser-Agent: net-scan\r\nConnection: close\r\n\r\n" % ip.encode())
-        data = b"";
+        data = b""
         s.settimeout(HTTP_TIMEOUT)
         while True:
             chunk = s.recv(4096)
@@ -204,7 +203,7 @@ def https_cert_cn(ip: str) -> str:
         with socket.create_connection((ip, 443), timeout=HTTP_TIMEOUT) as sock:
             with ctx.wrap_socket(sock, server_hostname=ip) as ssock:
                 cert = ssock.getpeercert()
-        for tup in cert.get("subject", ()):
+        for tup in cert.get("subject", ()):  # type: ignore[assignment]
             for k, v in tup:
                 if k.lower() == "commonname": return v
     except Exception:
@@ -300,7 +299,6 @@ def load_qss(dark: bool) -> str:
     subtx = "#64748B" if not dark else "#9CA3AF"
     acc = brand
     border = "#E5E7EB" if not dark else "#2A2D36"
-    row_h = "38px"
 
     return f"""
     QWidget {{
@@ -341,14 +339,14 @@ def load_qss(dark: bool) -> str:
         background: transparent; color: {acc}; border: 1px solid {acc};
         padding: 7px 13px; border-radius: 10px; font-weight: 600;
     }}
-        /* Кнопка "Установить" по свойству kind="install" */
+    /* Кнопка "Установить" по свойству kind="install" */
     QPushButton[kind="install"] {{
-        background: %s;        /* acc/brand — можешь подставить */
+        background: {acc};        /* acc/brand */
         color: white;
         border: none;
-        border-radius: 14px;
-        padding: 10px 22px;
-        min-width: 240px;      /* делаем длинной */
+        border-radius: 12px;
+        padding: 6px 14px;
+        min-width: 120px;      /* делаем длинной */
         font-weight: 600;
     }}
     QPushButton[kind="install"]:hover  {{ filter: brightness(1.08); }}
@@ -389,7 +387,7 @@ class ScanWorker(QThread):
     progress = pyqtSignal(int, int)
     status = pyqtSignal(str)
     finished = pyqtSignal(list)
-    error = pyqtSignal(str)  # <— новый
+    error = pyqtSignal(str)
 
     def run(self):
         try:
@@ -409,7 +407,6 @@ class ScanWorker(QThread):
                             rows.append(res)
                     except Exception:
                         logging.exception("fut.result() failed")
-                        # продолжаем; не валим весь скан
                     done += 1
                     if done % 8 == 0 or done == total:
                         self.status.emit(f"Сканируем {net.with_prefixlen}: {done}/{total}")
@@ -420,7 +417,7 @@ class ScanWorker(QThread):
             def ipkey(s: str) -> int:
                 try:
                     return int(ipaddress.IPv4Address(s))
-                except:
+                except Exception:
                     return 0
 
             rows.sort(key=lambda r: ipkey(r["ip"]))
@@ -443,53 +440,50 @@ class ProgressWindow(QMainWindow):
         self.setMinimumSize(720, 300)
         self.apply_theme()
 
-        wrap = QWidget(self);
+        wrap = QWidget(self)
         self.setCentralWidget(wrap)
-        root = QVBoxLayout(wrap);
-        root.setContentsMargins(32, 24, 32, 24);
+        root = QVBoxLayout(wrap)
+        root.setContentsMargins(32, 24, 32, 24)
         root.setSpacing(18)
 
         # карточка
-        card = QFrame(objectName="Card");
+        card = QFrame(objectName="Card")
         root.addWidget(card, 1)
-        v = QVBoxLayout(card);
-        v.setContentsMargins(32, 28, 32, 24);
+        v = QVBoxLayout(card)
+        v.setContentsMargins(32, 28, 32, 24)
         v.setSpacing(18)
 
         self.title = QLabel("Сканируем сеть…", objectName="Title")
         self.subtitle = QLabel("Это займёт совсем немного времени", objectName="Subtle")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        v.addWidget(self.title, 0);
+        v.addWidget(self.title, 0)
         v.addWidget(self.subtitle, 0)
 
-        self.pb = QProgressBar();
+        self.pb = QProgressBar()
         self.pb.setRange(0, 100)
         v.addWidget(self.pb, 0)
 
-        bottom = QHBoxLayout();
-        bottom.addStretch(1)
         self.hint = QLabel("Подсказка: держите ПК в сети во время поиска", objectName="Subtle")
-        bottom.addWidget(self.hint)
-        v.addLayout(bottom, 0)
+        v.addWidget(self.hint, 0)
 
         self._phrases = ["Собираем информацию…", "Ещё немного…", "Почти готово…"]
         self._ph_idx = 0
-        self._timer = QTimer(self);
+        self._timer = QTimer(self)
         self._timer.setInterval(1500)
-        self._timer.timeout.connect(self.rotate_phrase);
+        self._timer.timeout.connect(self.rotate_phrase)
         self._timer.start()
 
         self.worker = ScanWorker()
         self.worker.progress.connect(self.on_progress)
         self.worker.status.connect(self.on_status)
         self.worker.finished.connect(self.on_finished)
+        self.worker.error.connect(self.on_error)
         self.worker.start()
 
     def apply_theme(self):
         self.app.setStyleSheet(load_qss(self.dark))
-        font = QFont("Segoe UI", 10)
-        self.app.setFont(font)
+        self.app.setFont(QFont("Segoe UI", 10))
 
     def rotate_phrase(self):
         self._ph_idx = (self._ph_idx + 1) % len(self._phrases)
@@ -504,7 +498,6 @@ class ProgressWindow(QMainWindow):
     def on_finished(self, rows: List[Dict]):
         self._timer.stop()
         if not rows:
-            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.information(self, "Ничего не найдено",
                                     f"Сканирование завершено: принтеров не обнаружено.\nЛог: {LOG_PATH}")
         logging.info(f"on_finished: rows={len(rows)}")
@@ -512,6 +505,9 @@ class ProgressWindow(QMainWindow):
         self.results.show()
         _WinRegistry.add(self.results)  # держим ссылку
         self.hide()
+
+    def on_error(self, msg: str):
+        QMessageBox.critical(self, "Ошибка сканирования", msg)
 
 
 # ───────────────────────────────── Результаты (современная таблица) ────────────────────────────
@@ -525,51 +521,52 @@ class ResultsWindow(QMainWindow):
         self.rows_all = rows
         self.apply_theme()
 
-        wrap = QWidget(self);
+        wrap = QWidget(self)
         self.setCentralWidget(wrap)
-        root = QVBoxLayout(wrap);
-        root.setContentsMargins(28, 20, 28, 20);
+        root = QVBoxLayout(wrap)
+        root.setContentsMargins(28, 20, 28, 20)
         root.setSpacing(16)
 
         # ─ верхняя панель
-        toolbar_card = QFrame(objectName="Card");
+        toolbar_card = QFrame(objectName="Card")
         root.addWidget(toolbar_card, 0)
-        tl = QHBoxLayout(toolbar_card);
-        tl.setContentsMargins(16, 12, 16, 12);
+        tl = QHBoxLayout(toolbar_card)
+        tl.setContentsMargins(16, 12, 16, 12)
         tl.setSpacing(12)
 
-        self.title = QLabel("Найденные принтеры", objectName="Title");
+        self.title = QLabel("Найденные принтеры", objectName="Title")
         tl.addWidget(self.title, 0)
         tl.addStretch(1)
         self.search = QLineEdit(placeholderText="Поиск (IP / Host / Model / Описание)")
-        self.search.textChanged.connect(self.apply_filter);
+        self.search.textChanged.connect(self.apply_filter)
         self.search.setClearButtonEnabled(True)
         tl.addWidget(self.search, 2)
-        self.btn_rescan = QPushButton("🔄 Пересканировать", objectName="Ghost");
+        self.btn_rescan = QPushButton("🔄 Пересканировать", objectName="Ghost")
         self.btn_rescan.clicked.connect(self.rescan)
         tl.addWidget(self.btn_rescan, 0)
-        self.btn_theme = QPushButton("🌙 Тема", objectName="Ghost");
+        self.btn_theme = QPushButton("🌙 Тема", objectName="Ghost")
         self.btn_theme.clicked.connect(self.toggle_theme)
         tl.addWidget(self.btn_theme, 0)
 
         # ─ карточка с таблицей
-        table_card = QFrame(objectName="Card");
+        table_card = QFrame(objectName="Card")
         root.addWidget(table_card, 1)
-        tv = QVBoxLayout(table_card);
-        tv.setContentsMargins(16, 12, 16, 16);
+        tv = QVBoxLayout(table_card)
+        tv.setContentsMargins(16, 12, 16, 16)
         tv.setSpacing(8)
 
-        self.tbl = QTableWidget();
+        self.tbl = QTableWidget()
         tv.addWidget(self.tbl, 1)
         self.tbl.setColumnCount(5)
         self.tbl.setHorizontalHeaderLabels(["IP", "Host", "Модель", "Описание", "Action"])
+        self.tbl.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
         hdr = self.tbl.horizontalHeader()
         hdr.setStretchLastSection(False)
-        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)  # IP
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)  # Host
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)  # Model
-        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)  # Desc
-        hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Button
+        # ширины задаём сами, чтобы кнопка не растягивалась
+        for i in range(5):
+            hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
+
         self.tbl.setShowGrid(False)
         self.tbl.verticalHeader().setVisible(False)
         self.tbl.verticalHeader().setDefaultSectionSize(44)
@@ -577,27 +574,90 @@ class ResultsWindow(QMainWindow):
         self.tbl.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.tbl.setWordWrap(False)
 
+        # первичная подгонка ширин
+        self.adjust_columns()
+
         # ─ нижняя строка состояния
-        status_card = QFrame(objectName="Card");
+        status_card = QFrame(objectName="Card")
         root.addWidget(status_card, 0)
-        sl = QHBoxLayout(status_card);
-        sl.setContentsMargins(16, 10, 16, 10);
+        sl = QHBoxLayout(status_card)
+        sl.setContentsMargins(16, 10, 16, 10)
         sl.setSpacing(6)
         self.status = QLabel("Всего принтеров: 0", objectName="Subtle")
-        sl.addWidget(self.status);
+        sl.addWidget(self.status)
         sl.addStretch(1)
 
         self.populate(self.rows_all)
-        self.adjust_columns()  # первичная подгонка
 
-    # адаптивные ширины — без обрезания важных колонок
+    def apply_theme(self):
+        self.app.setStyleSheet(load_qss(self.dark))
+        self.app.setFont(QFont("Segoe UI", 10))
+
+    def toggle_theme(self):
+        self.dark = not self.dark
+        self.apply_theme()
+
+    def populate(self, rows: List[Dict]):
+        self.tbl.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            ip = row.get("ip", "")
+            host = row.get("host", "")
+            model = row.get("model", "")
+            desc = row.get("desc", "")
+
+            items = [ip, host, model, desc]
+            for c, val in enumerate(items):
+                it = QTableWidgetItem(val)
+                it.setToolTip(val or "")
+                it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.tbl.setItem(r, c, it)
+
+            btn = QPushButton("🖨 Установить")
+            btn.setObjectName("InstallBtn")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setProperty("kind", "install")
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.clicked.connect(lambda _, ip=ip, host=host, model=model: self.on_install(ip, host, model))
+            self.tbl.setCellWidget(r, 4, btn)
+
+        if hasattr(self, "status"):
+            self.status.setText(f"Всего принтеров: {len(rows)}")
+
+    def apply_filter(self):
+        q = self.search.text().strip().lower()
+        if not q:
+            self.populate(self.rows_all)
+            return
+        filtered = []
+        for r in self.rows_all:
+            blob = " ".join([r.get("ip", ""), r.get("host", ""), r.get("model", ""), r.get("desc", "")]).lower()
+            if q in blob:
+                filtered.append(r)
+        self.populate(filtered)
+
+    def on_install(self, ip: str, host: str, model: str):
+        QMessageBox.information(
+            self,
+            "Установка (заглушка)",
+            f"Подготовка установки принтера:\n\nIP: {ip}\nHost: {host or '—'}\nModel: {model or '—'}\n\n(Функционал будет реализован позже)",
+        )
+
+    def rescan(self):
+        p = ProgressWindow(self.app, dark=self.dark)
+        p.show()
+        _WinRegistry.add(p)
+        self.close()
+
+    # адаптивные ширины — фиксируем колонку с кнопкой
     def adjust_columns(self):
         vw = max(700, self.tbl.viewport().width())
-        w_btn = max(240, int(vw * 0.22))
-        w_ip = 140
-        w_host = int(vw * 0.28)
+
+        w_btn = 160  # компактная колонка для кнопки
+        w_ip = 150
+        w_host = int(vw * 0.30)
         w_model = int(vw * 0.22)
-        w_desc = max(200, vw - (w_btn + w_ip + w_host + w_model + 24))
+        w_desc = max(180, vw - (w_btn + w_ip + w_host + w_model + 24))
+
         self.tbl.setColumnWidth(0, w_ip)
         self.tbl.setColumnWidth(1, w_host)
         self.tbl.setColumnWidth(2, w_model)
@@ -608,126 +668,6 @@ class ResultsWindow(QMainWindow):
         super().resizeEvent(e)
         self.adjust_columns()
 
-    def apply_theme(self):
-        self.app.setStyleSheet(load_qss(self.dark))
-        self.app.setFont(QFont("Segoe UI", 10))
-
-    def toggle_theme(self):
-        self.dark = not self.dark
-        self.apply_theme()
-
-    def populate(self, rows: List[Dict]):
-        self.tbl.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            ip = row.get("ip", "")
-            host = row.get("host", "")
-            model = row.get("model", "")
-            desc = row.get("desc", "")
-
-            # ячейки + тултипы с полным текстом
-            items = [ip, host, model, desc]
-            for c, val in enumerate(items):
-                it = QTableWidgetItem(val)
-                it.setToolTip(val or "")
-                if c == 0:
-                    it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                    it.setData(Qt.ItemDataRole.UserRole, val)
-                self.tbl.setItem(r, c, it)
-
-            # красивая кнопка
-            btn = QPushButton("🖨 Установить")
-            btn.setObjectName("InstallBtn")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setProperty("kind", "install")  # подключит стиль из QSS
-            btn.setMinimumWidth(240)  # страховка
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding,
-                              QSizePolicy.Policy.Fixed)
-
-            # колонку делаем интерактивной и широкой
-            hdr = self.tbl.horizontalHeader()
-            for i in range(5):
-                hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-            btn.clicked.connect(lambda _, ip=ip, host=host, model=model: self.on_install(ip, host, model))
-            self.tbl.setCellWidget(r, 4, btn)
-
-        if hasattr(self, "status"):
-            self.status.setText(f"Всего принтеров: {len(rows)}")
-
-    def apply_filter(self):
-        q = self.search.text().strip().lower()
-        if not q:
-            self.populate(self.rows_all);
-            self.adjust_columns();
-            return
-        filtered = []
-        for r in self.rows_all:
-            blob = " ".join([r.get("ip", ""), r.get("host", ""), r.get("model", ""), r.get("desc", "")]).lower()
-            if q in blob:
-                filtered.append(r)
-        self.populate(filtered);
-        self.adjust_columns()
-
-    def on_install(self, ip: str, host: str, model: str):
-        QMessageBox.information(self, "Установка (заглушка)",
-                                f"Подготовка установки принтера:\n\nIP: {ip}\nHost: {host or '—'}\nModel: {model or '—'}\n\n(Функционал будет реализован позже)")
-
-    def rescan(self):
-        p = ProgressWindow(self.app, dark=self.dark)
-        p.show();
-        _WinRegistry.add(p)
-        self.close()
-
-    def apply_theme(self):
-        self.app.setStyleSheet(load_qss(self.dark))
-        self.app.setFont(QFont("Segoe UI", 10))
-
-    def toggle_theme(self):
-        self.dark = not self.dark
-        self.apply_theme()
-
-    def populate(self, rows: List[Dict]):
-        self.tbl.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            ip = row.get("ip", "")
-            host = row.get("host", "")
-            model = row.get("model", "")
-            desc = row.get("desc", "")
-
-            for c, val in enumerate([ip, host, model, desc]):
-                it = QTableWidgetItem(val)
-                if c == 0: it.setData(Qt.ItemDataRole.UserRole, val)
-                self.tbl.setItem(r, c, it)
-
-            btn = QPushButton("🖨 Установить")
-            btn.clicked.connect(lambda _, ip=ip, host=host, model=model: self.on_install(ip, host, model))
-            self.tbl.setCellWidget(r, 4, btn)
-
-        self.status.setText(f"Всего принтеров: {len(rows)}")
-
-    def apply_filter(self):
-        q = self.search.text().strip().lower()
-        if not q:
-            self.populate(self.rows_all);
-            return
-        filtered = []
-        for r in self.rows_all:
-            blob = " ".join([r.get("ip", ""), r.get("host", ""), r.get("model", ""), r.get("desc", "")]).lower()
-            if q in blob:
-                filtered.append(r)
-        self.populate(filtered)
-
-    def on_install(self, ip: str, host: str, model: str):
-        QMessageBox.information(self, "Установка (заглушка)",
-                                f"Подготовка установки принтера:\n\nIP: {ip}\nHost: {host or '—'}\nModel: {model or '—'}\n\n(Функционал будет реализован позже)")
-
-    def rescan(self):
-        # создаём новое окно прогресса, держим ссылку в реестре,
-        # текущее окно результатов закрываем
-        p = ProgressWindow(self.app, dark=self.dark)
-        p.show()
-        _WinRegistry.add(p)
-        self.close()
-
 
 # ───────────────────────────────── Запуск со сплэшем ───────────────────────────────────────────
 def show_splash_then_main():
@@ -737,7 +677,7 @@ def show_splash_then_main():
     splash_path = os.path.join(os.path.dirname(__file__), "splash.png")
     pix = QPixmap(splash_path) if os.path.exists(splash_path) else QPixmap(300, 150)
     if pix.isNull():
-        pix = QPixmap(300, 150);
+        pix = QPixmap(300, 150)
         pix.fill(Qt.GlobalColor.white)
     splash = QSplashScreen(pix)
     app.setStyleSheet(load_qss(dark=False))
@@ -750,7 +690,7 @@ def show_splash_then_main():
     win = ProgressWindow(app, dark=False)
     win.show()
     splash.finish(win)
-    app.setQuitOnLastWindowClosed(True)  # нормальное завершение, когда все окна закрыты
+    app.setQuitOnLastWindowClosed(True)
 
     sys.exit(app.exec())
 
