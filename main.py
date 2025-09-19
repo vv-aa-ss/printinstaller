@@ -13,6 +13,8 @@ from PyQt6.QtWidgets import (
     QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton,
     QMessageBox, QLineEdit, QHBoxLayout, QFrame, QSizePolicy
 )
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QCursor, QGuiApplication
 
 LOG_PATH = os.path.join(tempfile.gettempdir(),
                         f"PrinterInstaller_{time.strftime('%Y%m%d_%H%M%S')}.log")
@@ -25,7 +27,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-
 def _excepthook(etype, value, tb):
     logging.critical("UNCAUGHT", exc_info=(etype, value, tb))
     try:
@@ -34,10 +35,7 @@ def _excepthook(etype, value, tb):
     except Exception:
         pass
 
-
-
 sys.excepthook = _excepthook
-
 
 class _WinRegistry:
     """Держим ссылки на окна, чтобы GC их не прибил преждевременно."""
@@ -51,22 +49,22 @@ class _WinRegistry:
         except Exception:
             pass
 
-
 # ───────────────────────────────── Mini-DB────────────────────────────────
+# Можете хранить ip/host/model/desc. Ключ — произвольный идентификатор (обычно host).
 USER_DB: Dict[str, Dict[str, str]] = {
-    "KMCC36FF": {"model": "ECOSYS P3145dn", "desc": "Принтер экономистов"},
-    "CANON719955": {"model":"MF429x", "desc":"Офис победителей"},
-    "MF4780w": {"desc": "Офис победителей"}
-
+    "KMCC36FF":   {"model": "ECOSYS P3145dn", "desc": "Принтер экономистов",  "ip": "192.168.1.45"},
+    "KMB68267":   {"model": "ECOSYS M2040dn", "desc": "Принтер бухгалтеров",  "ip": "192.168.1.46"},
+    "P223":       {"desc":  "Canon Руководства", "host": "Canon78c24e",        "ip": "192.168.1.223"},
+    "CANON719955":{"model": "Canon MF429x",   "desc": "Принтер манагеров"}   # ip/host можно не указывать
 }
 
 # ───────────────────────────────── Сканер: настройки ────────────────────────────────────────────
 GATE_PORTS = [9100, 631, 80]
 DEFAULT_PORTS = [80, 443, 515, 631, 9100]
 CONNECT_FAST_1 = 0.18
-CONNECT_FAST_2 = 0.30
+CONNECT_FAST_2 = 0.80
 CONNECT_FULL = 0.32
-HTTP_TIMEOUT = 0.6
+HTTP_TIMEOUT = 1
 MAX_WORKERS = min(256, (os.cpu_count() or 4) * 32)
 
 PRINTER_KEYWORDS = (
@@ -77,7 +75,6 @@ PRINTER_KEYWORDS = (
 
 CREATE_NO_WINDOW = 0x08000000 if platform.system().lower().startswith("win") else 0
 HOST_CACHE: Dict[str, str] = {}
-
 
 # ───────────────────────────────── helpers (no-cmd windows) ─────────────────────────────────────
 def run_cmd_silent(cmd: List[str], timeout: Optional[int] = None) -> str:
@@ -100,7 +97,6 @@ def run_cmd_silent(cmd: List[str], timeout: Optional[int] = None) -> str:
         logging.exception(f"cmd exception: {cmd}")
         return ""
 
-
 # ───────────────────────────────── сеть: подсеть и примитивы ────────────────────────────────────
 def default_gateway_net() -> Optional[ipaddress.IPv4Network]:
     gw = ""
@@ -117,10 +113,8 @@ def default_gateway_net() -> Optional[ipaddress.IPv4Network]:
     except Exception:
         return None
 
-
 def detect_subnet() -> ipaddress.IPv4Network:
     return default_gateway_net() or ipaddress.IPv4Network("192.168.0.0/24")
-
 
 def tcp_open(ip: str, port: int, timeout: float) -> bool:
     try:
@@ -129,28 +123,23 @@ def tcp_open(ip: str, port: int, timeout: float) -> bool:
     except Exception:
         return False
 
-
 def rdns(ip: str, timeout: float = 0.45) -> str:
     name = [""]
-
     def worker():
         try:
             name[0] = socket.gethostbyaddr(ip)[0]
         except Exception:
             name[0] = ""
-
     t = threading.Thread(target=worker, daemon=True)
     t.start()
     t.join(timeout)
     return name[0]
-
 
 def nbtstat_name(ip: str, timeout: float = 1.2) -> str:
     if not platform.system().lower().startswith("win"): return ""
     out = run_cmd_silent(["nbtstat", "-A", ip], timeout=timeout)
     m = re.search(r"^\s*([A-Z0-9\-_]{1,15})\s+<00>\s+UNIQUE", out, re.MULTILINE)
     return m.group(1) if m else ""
-
 
 def resolve_dnsname_ptr(ip: str, timeout: float = 1.0) -> str:
     if not platform.system().lower().startswith("win"): return ""
@@ -159,13 +148,11 @@ def resolve_dnsname_ptr(ip: str, timeout: float = 1.0) -> str:
                          timeout=timeout).strip()
     return out.rstrip(".")
 
-
 def _detect_charset(headers: str, body: str) -> str:
     m = re.search(r"charset=([\w\-]+)", headers, re.IGNORECASE)
     if m: return m.group(1).lower()
     m = re.search(r"<meta[^>]+charset=['\"]?([\w\-]+)['\"]?", body, re.IGNORECASE)
     return m.group(1).lower() if m else ""
-
 
 def http_fingerprint(ip: str, port: int = 80) -> Tuple[str, str]:
     try:
@@ -199,7 +186,6 @@ def http_fingerprint(ip: str, port: int = 80) -> Tuple[str, str]:
     except Exception:
         return "", ""
 
-
 def https_cert_cn(ip: str) -> str:
     try:
         ctx = ssl.create_default_context()
@@ -213,7 +199,6 @@ def https_cert_cn(ip: str) -> str:
         pass
     return ""
 
-
 def is_printer(ports_open: Dict[int, bool], hints: List[str]) -> bool:
     if ports_open.get(9100) or ports_open.get(631) or ports_open.get(515):
         return True
@@ -222,7 +207,6 @@ def is_printer(ports_open: Dict[int, bool], hints: List[str]) -> bool:
         if any(k in low for k in PRINTER_KEYWORDS):
             return True
     return False
-
 
 def get_hostname_best(ip: str) -> str:
     if ip in HOST_CACHE:
@@ -237,7 +221,6 @@ def get_hostname_best(ip: str) -> str:
     HOST_CACHE[ip] = name or ""
     return HOST_CACHE[ip]
 
-
 def fast_gate(ip: str) -> bool:
     for p in GATE_PORTS:
         if tcp_open(ip, p, CONNECT_FAST_1):
@@ -247,42 +230,41 @@ def fast_gate(ip: str) -> bool:
             return True
     return False
 
-
 def scan_one(ip: str) -> Optional[Dict]:
     if not fast_gate(ip):
         return None
     ports_open = {p: tcp_open(ip, p, CONNECT_FULL) for p in DEFAULT_PORTS}
-
     host = get_hostname_best(ip)
-
     http_server, http_title = ("", "")
     if ports_open.get(80):
         http_server, http_title = http_fingerprint(ip, 80)
     tls_cn = https_cert_cn(ip) if ports_open.get(443) else ""
-
     hints = [host, http_server, http_title, tls_cn]
     if not is_printer(ports_open, hints):
         return None
 
-    # simple model grab from banners
+    # simple model grab
     model = ""
     blob = " ".join([http_server, http_title, tls_cn])
     m = re.search(
         r"(ECOSYS\s+[A-Z0-9\-]+|TASKalfa\s+[A-Z0-9\-]+|imageRUNNER\s+ADV[^\s<]+|MF\d{3,5}[A-Za-z]?|P\d{3,5}[A-Za-z]?|B\d{3,5})",
         blob, re.IGNORECASE)
-    if m: model = m.group(1)
+    if m:
+        model = m.group(1)
 
     extra = USER_DB.get(host or "", {})
     if not extra and model:
         extra = USER_DB.get(model, {})
+
     if extra:
+        if not host and "host" in extra:
+            host = extra["host"]
         model = extra.get("model", model)
         desc = extra.get("desc", "")
     else:
         desc = ""
 
     return {"ip": ip, "host": host, "model": model, "desc": desc}
-
 
 def improve_missing_hosts(rows: List[Dict]) -> None:
     for r in rows:
@@ -293,10 +275,57 @@ def improve_missing_hosts(rows: List[Dict]) -> None:
             r["host"] = name
             HOST_CACHE[ip] = name
 
+# === NEW === helper: сопоставление результатов скана с mini-DB
+def compose_rows_from_db(scanned: List[Dict]) -> List[Dict]:
+    """
+    Возвращает список для таблицы из mini-DB с флагом online.
+    При совпадении берём «живые» поля (ip/host/model) из результатов сканирования.
+    Порядок — по IP если есть, иначе по host.
+    """
+    # индексы для быстрого поиска
+    by_ip   = {r.get("ip"): r for r in scanned if r.get("ip")}
+    by_host = {r.get("host","").lower(): r for r in scanned if r.get("host")}
+    by_model= {}
+    for r in scanned:
+        m = (r.get("model") or "").lower()
+        if m and m not in by_model:
+            by_model[m] = r
+
+    out: List[Dict] = []
+    for key, rec in USER_DB.items():
+        ip   = rec.get("ip", "")
+        host = rec.get("host", "") or key  # если ключ — это host
+        model= rec.get("model", "")
+        desc = rec.get("desc", "")
+
+        match = None
+        if ip and ip in by_ip:
+            match = by_ip[ip]
+        elif host and host.lower() in by_host:
+            match = by_host[host.lower()]
+        elif model and model.lower() in by_model:
+            match = by_model[model.lower()]
+
+        online = bool(match)
+        if match:
+            # Подставляем фактические данные из сети
+            ip    = match.get("ip", ip)
+            host  = match.get("host", host)
+            model = match.get("model", model)
+
+        out.append({"online": online, "ip": ip, "host": host, "model": model, "desc": desc})
+
+    # сортировка (по IP если есть, иначе по host)
+    def ipkey(ipstr: str) -> int:
+        try:
+            return int(ipaddress.IPv4Address(ipstr))
+        except Exception:
+            return 0
+    out.sort(key=lambda r: (0 if r["ip"] else 1, ipkey(r["ip"]), (r["host"] or "").lower()))
+    return out
 
 # ───────────────────────────────── Тема/стили ───────────────────────────────────────────────────
 def load_qss(dark: bool) -> str:
-    # Можно настроить фирменный цвет
     brand = "#2F8FFF" if not dark else "#6EA8FF"
     bg = "#F5F7FB" if not dark else "#121317"
     card = "#FFFFFF" if not dark else "#1B1D23"
@@ -316,6 +345,10 @@ def load_qss(dark: bool) -> str:
         background: {card};
         border: 1px solid {border};
         border-radius: 16px;
+    }}
+    QFrame#ToolbarCard, QFrame#StatusCard {{
+        background: transparent;
+        border: none;
     }}
     QLabel#Title {{
         font-size: 22px; font-weight: 700; padding: 4px 6px;
@@ -344,14 +377,13 @@ def load_qss(dark: bool) -> str:
         background: transparent; color: {acc}; border: 1px solid {acc};
         padding: 7px 13px; border-radius: 10px; font-weight: 600;
     }}
-    /* Кнопка "Установить" по свойству kind="install" */
     QPushButton[kind="install"] {{
-        background: {acc};        /* acc/brand */
+        background: {acc};
         color: white;
         border: none;
         border-radius: 12px;
         padding: 6px 14px;
-        min-width: 120px;      /* делаем длинной */
+        min-width: 120px;
         font-weight: 600;
     }}
     QPushButton[kind="install"]:hover  {{ filter: brightness(1.08); }}
@@ -385,7 +417,6 @@ def load_qss(dark: bool) -> str:
         height: 0px; background: none;
     }}
     """
-
 
 # ───────────────────────────────── Worker (параллельный) ───────────────────────────────────────
 class ScanWorker(QThread):
@@ -434,7 +465,6 @@ class ScanWorker(QThread):
             logging.critical("Worker crashed:\n" + msg)
             self.error.emit(msg)
 
-
 # ───────────────────────────────── Прогресс-окно (карточка) ────────────────────────────────────
 class ProgressWindow(QMainWindow):
     def __init__(self, app, dark=False):
@@ -451,15 +481,14 @@ class ProgressWindow(QMainWindow):
         root.setContentsMargins(32, 24, 32, 24)
         root.setSpacing(18)
 
-        # карточка
         card = QFrame(objectName="Card")
         root.addWidget(card, 1)
         v = QVBoxLayout(card)
         v.setContentsMargins(32, 28, 32, 24)
         v.setSpacing(18)
 
-        self._real_progress = 0  # фактический прогресс от worker
-        self._display_progress = 0  # то что показываем в QProgressBar
+        self._real_progress = 0
+        self._display_progress = 0
         self.title = QLabel("Сканируем сеть…", objectName="Title")
         self.subtitle = QLabel("Это займёт совсем немного времени", objectName="Subtle")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -470,9 +499,6 @@ class ProgressWindow(QMainWindow):
         self.pb = QProgressBar()
         self.pb.setRange(0, 100)
         v.addWidget(self.pb, 0)
-
-        self.hint = QLabel("Подсказка: держите ПК в сети во время поиска", objectName="Subtle")
-        v.addWidget(self.hint, 0)
 
         self._phrases = [
             "Собираем информацию…",
@@ -495,7 +521,7 @@ class ProgressWindow(QMainWindow):
         self.worker.error.connect(self.on_error)
         self.worker.start()
         self._progress_timer = QTimer(self)
-        self._progress_timer.setInterval(300)  # каждые 300 мс
+        self._progress_timer.setInterval(300)
         self._progress_timer.timeout.connect(self.smooth_progress)
         self._progress_timer.start()
 
@@ -508,7 +534,6 @@ class ProgressWindow(QMainWindow):
             self.title.setText(self._phrases[self._ph_idx])
             self._ph_idx += 1
         else:
-            # достигли конца списка — можно остановить таймер
             self._timer.stop()
 
     def on_status(self, text: str):
@@ -519,20 +544,18 @@ class ProgressWindow(QMainWindow):
 
     def on_finished(self, rows: List[Dict]):
         self._timer.stop()
-        if not rows:
-            QMessageBox.information(self, "Ничего не найдено",
-                                    f"Сканирование завершено: принтеров не обнаружено. Можете попробовать еще раз")
-        logging.info(f"on_finished: rows={len(rows)}")
-        self.results = ResultsWindow(self.app, rows, self.dark)
+        logging.info(f"on_finished: scanned_rows={len(rows)}")
+        # === NEW === строим итоговый список из mini-DB
+        final_rows = compose_rows_from_db(rows)
+        self.results = ResultsWindow(self.app, final_rows, self.dark)
         self.results.show()
-        _WinRegistry.add(self.results)  # держим ссылку
+        _WinRegistry.add(self.results)
         self.hide()
 
     def on_error(self, msg: str):
         QMessageBox.critical(self, "Ошибка сканирования", msg)
 
     def smooth_progress(self):
-        # если фактический прогресс больше текущего отображаемого — подгоняем на шаг
         if self._display_progress < self._real_progress:
             self._display_progress += 4
             self.pb.setValue(self._display_progress)
@@ -549,7 +572,7 @@ class ResultsWindow(QMainWindow):
         self.dark = dark
         self.setWindowTitle("Найденные принтеры")
         self.resize(980, 640)
-        self.rows_all = rows
+        self.rows_all = rows   # уже включает все устройства из mini-DB
         self.apply_theme()
 
         wrap = QWidget(self)
@@ -558,8 +581,7 @@ class ResultsWindow(QMainWindow):
         root.setContentsMargins(28, 20, 28, 20)
         root.setSpacing(16)
 
-        # ─ верхняя панель
-        toolbar_card = QFrame(objectName="Card")
+        toolbar_card = QFrame(objectName="ToolbarCard")
         root.addWidget(toolbar_card, 0)
         tl = QHBoxLayout(toolbar_card)
         tl.setContentsMargins(16, 12, 16, 12)
@@ -579,7 +601,6 @@ class ResultsWindow(QMainWindow):
         self.btn_theme.clicked.connect(self.toggle_theme)
         tl.addWidget(self.btn_theme, 0)
 
-        # ─ карточка с таблицей
         table_card = QFrame(objectName="Card")
         root.addWidget(table_card, 1)
         tv = QVBoxLayout(table_card)
@@ -588,14 +609,14 @@ class ResultsWindow(QMainWindow):
 
         self.tbl = QTableWidget()
         tv.addWidget(self.tbl, 1)
-        self.tbl.setColumnCount(5)
-        self.tbl.setHorizontalHeaderLabels(["IP", "Host", "Модель", "Описание", "Action"])
+        # === NEW === добавили колонку статуса слева
+        self.tbl.setColumnCount(6)
+        self.tbl.setHorizontalHeaderLabels(["✓", "IP", "Host", "Модель", "Описание", "Action"])
         self.tbl.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         hdr = self.tbl.horizontalHeader()
         hdr.setStretchLastSection(False)
-        # ширины задаём сами, чтобы кнопка не растягивалась
-        for i in range(5):
+        for i in range(6):
             hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
 
         self.tbl.setShowGrid(False)
@@ -605,11 +626,9 @@ class ResultsWindow(QMainWindow):
         self.tbl.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.tbl.setWordWrap(False)
 
-        # первичная подгонка ширин
         self.adjust_columns()
 
-        # ─ нижняя строка состояния
-        status_card = QFrame(objectName="Card")
+        status_card = QFrame(objectName="StatusCard")
         root.addWidget(status_card, 0)
         sl = QHBoxLayout(status_card)
         sl.setContentsMargins(16, 10, 16, 10)
@@ -628,16 +647,27 @@ class ResultsWindow(QMainWindow):
         self.dark = not self.dark
         self.apply_theme()
 
+    # === NEW === рисуем галочку с цветом
+    def _status_widget(self, online: bool) -> QWidget:
+        w = QLabel("✔")
+        w.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        w.setStyleSheet(f"font-weight:700; color: {'#22c55e' if online else '#f59e0b'};")  # зелёный / оранжевый
+        return w
+
     def populate(self, rows: List[Dict]):
         self.tbl.setRowCount(len(rows))
         for r, row in enumerate(rows):
+            online = bool(row.get("online"))
             ip = row.get("ip", "")
             host = row.get("host", "")
             model = row.get("model", "")
             desc = row.get("desc", "")
 
+            # статус
+            self.tbl.setCellWidget(r, 0, self._status_widget(online))
+
             items = [ip, host, model, desc]
-            for c, val in enumerate(items):
+            for c, val in enumerate(items, start=1):
                 it = QTableWidgetItem(val)
                 it.setToolTip(val or "")
                 it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -649,7 +679,7 @@ class ResultsWindow(QMainWindow):
             btn.setProperty("kind", "install")
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda _, ip=ip, host=host, model=model: self.on_install(ip, host, model))
-            self.tbl.setCellWidget(r, 4, btn)
+            self.tbl.setCellWidget(r, 5, btn)
 
         if hasattr(self, "status"):
             self.status.setText(f"Всего принтеров: {len(rows)}")
@@ -682,49 +712,82 @@ class ResultsWindow(QMainWindow):
     # адаптивные ширины — фиксируем колонку с кнопкой
     def adjust_columns(self):
         vw = max(700, self.tbl.viewport().width())
-
-        w_btn = 160  # компактная колонка для кнопки
+        w_status = 44
+        w_btn = 160
         w_ip = 150
-        w_host = int(vw * 0.30)
-        w_model = int(vw * 0.22)
-        w_desc = max(180, vw - (w_btn + w_ip + w_host + w_model + 24))
+        w_host = int(vw * 0.28)
+        w_model = int(vw * 0.20)
+        w_desc = max(180, vw - (w_status + w_btn + w_ip + w_host + w_model + 24))
 
-        self.tbl.setColumnWidth(0, w_ip)
-        self.tbl.setColumnWidth(1, w_host)
-        self.tbl.setColumnWidth(2, w_model)
-        self.tbl.setColumnWidth(3, w_desc)
-        self.tbl.setColumnWidth(4, w_btn)
+        self.tbl.setColumnWidth(0, w_status)
+        self.tbl.setColumnWidth(1, w_ip)
+        self.tbl.setColumnWidth(2, w_host)
+        self.tbl.setColumnWidth(3, w_model)
+        self.tbl.setColumnWidth(4, w_desc)
+        self.tbl.setColumnWidth(5, w_btn)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self.adjust_columns()
 
-
 # ───────────────────────────────── Запуск со сплэшем ───────────────────────────────────────────
 def show_splash_then_main():
-    app = QApplication(sys.argv)
+    from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve
 
-    # сплэш с фирменной картинкой
-    splash_path = os.path.join(os.path.dirname(__file__), "splash.png")
-    pix = QPixmap(splash_path) if os.path.exists(splash_path) else QPixmap(300, 150)
-    if pix.isNull():
-        pix = QPixmap(300, 150)
-        pix.fill(Qt.GlobalColor.white)
-    splash = QSplashScreen(pix)
+    app = QApplication(sys.argv)
     app.setStyleSheet(load_qss(dark=False))
     app.setFont(QFont("Segoe UI", 10))
 
+    target_screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+
+    splash_path = os.path.join(os.path.dirname(__file__), "splash.png")
+    pix = QPixmap(splash_path) if os.path.exists(splash_path) else QPixmap(50, 25)
+    if pix.isNull():
+        pix = QPixmap(50, 25); pix.fill(Qt.GlobalColor.white)
+    else:
+        pix = pix.scaled(420, 220, Qt.AspectRatioMode.KeepAspectRatio,
+                         Qt.TransformationMode.SmoothTransformation)
+
+    splash = QSplashScreen(pix)
+    splash.setWindowOpacity(0.0)
+
+    if splash.windowHandle():
+        splash.windowHandle().setScreen(target_screen)
     splash.show()
     app.processEvents()
-    time.sleep(2.0)  # короткая пауза
 
-    win = ProgressWindow(app, dark=False)
-    win.show()
-    splash.finish(win)
+    geo = target_screen.geometry()
+    splash.move(geo.center() - splash.rect().center())
+
+    anim_in = QPropertyAnimation(splash, b"windowOpacity")
+    anim_in.setDuration(600)
+    anim_in.setStartValue(0.0)
+    anim_in.setEndValue(1.0)
+    anim_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
+    splash._anim_in = anim_in
+    anim_in.start()
+    _WinRegistry.add(splash)
+
+    def start_main():
+        def finish_with_main():
+            win = ProgressWindow(app, dark=False)
+            win.show()
+            _WinRegistry.add(win)
+            splash.finish(win)
+
+        anim_out = QPropertyAnimation(splash, b"windowOpacity")
+        anim_out.setDuration(250)
+        anim_out.setStartValue(1.0)
+        anim_out.setEndValue(0.0)
+        anim_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        splash._anim_out = anim_out
+        anim_out.finished.connect(finish_with_main)
+        anim_out.start()
+
+    QTimer.singleShot(2000, start_main)
+
     app.setQuitOnLastWindowClosed(True)
-
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     show_splash_then_main()
