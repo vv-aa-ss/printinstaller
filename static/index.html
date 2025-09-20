@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Список принтеров</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="card toolbar">
+      <h1 class="title">Список принтеров</h1>
+      <div class="grow"></div>
+      <input id="search" class="input" placeholder="Поиск (IP / Host / Модель / Описание)" />
+      <button id="rescan" class="btn ghost">🔄 Пересканировать</button>
+      <button id="theme" class="btn ghost">🌙 Тема</button>
+    </header>
+
+    <main class="card table-card">
+      <div class="table-head">
+        <div class="col status">Статус</div>
+        <div class="col ip">IP</div>
+        <div class="col host">Host</div>
+        <div class="col model">Модель</div>
+        <div class="col desc">Описание</div>
+        <div class="col action">Действие</div>
+      </div>
+      <div id="tbody" class="table-body"></div>
+    </main>
+
+    <footer class="card footer">
+      <div id="summary" class="muted">—</div>
+      <div class="grow"></div>
+      <div class="muted">Веб-версия UI</div>
+    </footer>
+  </div>
+
+  <div id="splash" class="splash visible">
+    <div class="splash-card">
+      <div class="logo">🖨️</div>
+      <div class="splash-title">Сканируем сеть…</div>
+      <div class="splash-sub">Проверяем веб-интерфейсы и порты принтеров</div>
+      <div class="progress"><div class="bar" id="bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Coachmark: стрелка к загрузкам -->
+  <div id="download-hint" class="coach hidden" aria-hidden="true">
+    <div class="coach-card">
+      <div class="coach-title">Файл скачан</div>
+      <div class="coach-sub">Откройте установщик в загрузках</div>
+    </div>
+    <svg class="coach-arrow" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+      <defs>
+        <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <polygon points="0 0, 6 3, 0 6"></polygon>
+        </marker>
+      </defs>
+      <path d="M10,10 C40,25 80,45 110,60" marker-end="url(#arrowhead)"></path>
+    </svg>
+    <div class="coach-pulse" aria-hidden="true"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
