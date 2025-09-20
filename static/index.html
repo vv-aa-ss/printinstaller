@@ -14,7 +14,6 @@
       <div class="grow"></div>
       <input id="search" class="input" placeholder="Поиск (IP / Host / Модель / Описание)" />
       <button id="rescan" class="btn ghost">🔄 Пересканировать</button>
-      <button id="theme" class="btn ghost">🌙 Тема</button>
     </header>
 
     <!-- Таблица -->
@@ -30,55 +29,38 @@
       <div id="tbody" class="table-body"></div>
       <div class="footer">
         <span id="summary" class="muted">—</span>
+        <div style="min-width:260px">
+          <div id="splash" class="splash hidden"><div id="bar" class="bar"></div></div>
+        </div>
       </div>
     </section>
-  </div>
 
-  <!-- Сплэш сканирования -->
-  <div id="splash" class="splash" aria-hidden="true">
-    <div class="splash-card">
-      <div class="logo">🖨️</div>
-      <div class="splash-title">Сканируем принтеры…</div>
-      <div class="splash-sub">Проверяем веб-интерфейсы и порты принтеров</div>
-      <div class="progress"><div class="bar" id="bar"></div></div>
+    <!-- Подсказка (появляется снизу вверх, линия рисуется) -->
+    <div id="coach" class="coach coach-fixed hidden">
+      <div class="bubble">
+        Откройте инсталлятор.
+        Если браузер не показывает загрузки — зажмите (Ctrl+J).
+      </div>
+      <div class="coach-line" aria-hidden="true">
+        <svg viewBox="0 0 80 220" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="coach-arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto">
+              <polygon points="0 0, 8 4, 0 8" fill="hsl(214deg 85% 48%)"></polygon>
+            </marker>
+          </defs>
+          <!-- линия снизу вверх -->
+          <line class="line" x1="60" y1="210" x2="60" y2="20" marker-end="url(#coach-arrowhead)"/>
+          <!-- пульс в начале линии (внизу) -->
+          <circle class="pulse-core" cx="60" cy="210" r="5" />
+          <circle class="pulse-ring" cx="60" cy="210" r="1" />
+        </svg>
+      </div>
+      </div>
     </div>
-  </div>
 
-  <!-- Coachmark: карточка + кривая со стрелкой и анимированным кружком в начале -->
-  <div id="download-hint" class="coach hidden" aria-hidden="true">
-    <div class="coach-card">
-      <div class="coach-title">Файл скачан</div>
-      <div class="coach-sub">Откройте установщик в загрузках</div>
-    </div>
-
-    <!-- Длинная изогнутая линия. Кружок в начале — <circle>. -->
-    <svg class="coach-curve" viewBox="0 0 400 140" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <marker id="coach-arrowhead" markerWidth="8" markerHeight="8" refX="5" refY="3" orient="auto">
-          <polygon points="0 0, 6 3, 0 6"></polygon>
-        </marker>
-      </defs>
-
-      <!-- анимированный синий кружок в начале линии -->
-      <!-- фиксированный залитый кружок -->
-<circle class="curve-dot" cx="10" cy="120" r="8"></circle>
-
-<!-- волна: расширяющееся кольцо с плавным затуханием -->
-<circle class="curve-dot-wave" cx="10" cy="120" r="8">
-  <animate attributeName="r" dur="1.4s" values="8;26" repeatCount="indefinite"/>
-  <animate attributeName="opacity" dur="1.4s" values="0.5;0" repeatCount="indefinite"/>
-</circle>
-
-      <!-- сама линия -->
-      <path class="curve"
-            d="M10,120 C150,110 310,70 390,20"
-            marker-end="url(#coach-arrowhead)"></path>
-    </svg>
-
-    <!-- маленький «пульс» рядом с областью загрузок (можно оставить/убрать) -->
-    <!-- <div class="coach-pulse" aria-hidden="true"></div>-->
   </div>
 
   <script src="app.js"></script>
 </body>
 </html>
+
