@@ -64,7 +64,7 @@ search.addEventListener('input', filter);
 // ——— Подсказка «Откройте установщик в загрузках» ———
 const coach = document.getElementById('download-hint');
 let coachTimer = null;
-function showDownloadHint(ms=6000){
+function showDownloadHint(ms=12000){
   if(!coach) return;
   coach.classList.remove('hidden');
   if(coachTimer){ clearTimeout(coachTimer); }

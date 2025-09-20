@@ -2,6 +2,7 @@
 import json, os, threading, socket, base64
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
+import re, hashlib, urllib.parse
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -10,11 +11,20 @@ WEB_ROOT = os.path.join(os.path.dirname(__file__), "static")
 INSTALLER_BIN = os.path.join(os.path.dirname(__file__), "publish", "PrinterInstaller.exe")
 
 SAVED_PRINTERS = [
-    {"ip": "192.168.10.21", "host": "KMCC36FF",   "model": "ECOSYS P3145dn", "desc": "Экономисты"},
-    {"ip": "192.168.10.35", "host": "CANON719955","model": "Canon MF429x",   "desc": "Офис победителей"},
+    {"ip": "192.168.0.190", "host": "KMCC36FF", "model": "ECOSYS P3145dn", "desc": "Экономисты"},
+    {"ip": "192.168.0.105", "host": "KMB68267", "model": "ECOSYS M2040dn",   "desc": "Бухгалтеры"},
+    {"ip": "192.168.0.24", "host": "Canon78c24e", "model": "LBP 223DW",   "desc": "Руководство"},
+    {"ip": "192.168.0.254", "host": "CanonXX", "model": "MF428X",   "desc": "Менеджеры"}
 ]
 
 GATE_PORTS = [9100, 631, 80]
+
+def sanitize_name(s: str, repl='_'):
+    # Разрешим буквы/цифры/пробел/.-_ (кириллица тоже ок для NTFS)
+    s = s.strip()
+    s = re.sub(r'[^\w\s\.\-\u0400-\u04FF]', repl, s)  # кириллица \u0400-\u04FF
+    s = re.sub(r'\s+', '_', s)
+    return s[:50] or 'unknown'
 
 def tcp_open(ip: str, port: int, timeout: float = 0.25) -> bool:
     try:
@@ -76,29 +86,31 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/dl/installer":
             from urllib.parse import parse_qs
             q = parse_qs(parsed.query)
-            cfg = {
-                "ip":    (q.get("ip") or [""])[0],
-                "host":  (q.get("host") or [""])[0],
-                "model": (q.get("model") or [""])[0],
-            }
-            # simple sanity limit
-            for k in list(cfg.keys()):
-                cfg[k] = str(cfg[k])[:128]
-            blob = json.dumps(cfg, ensure_ascii=False).encode("utf-8")
-            tag = base64.urlsafe_b64encode(blob).decode("ascii").rstrip("=")
-            filename = f"PrinterInstaller__{tag}.exe"
+            ip = (q.get('ip') or [''])[0]
+            host = (q.get('host') or [''])[0]
+            model = (q.get('model') or [''])[0]
+            blob = f"{ip}|{host}|{model}"
+            short = hashlib.sha1(blob.encode('utf-8')).hexdigest()[:6]
 
-            if not os.path.exists(INSTALLER_BIN):
-                msg = ("Installer binary not found.\n"
-                       "Put your PrinterInstaller.exe into the './publish' folder "
-                       "next to server.py and try again.")
-                data = msg.encode("utf-8")
-                self.send_response(500)
-                self.send_header("Content-Type","text/plain; charset=utf-8")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-                return
+            pretty_host = sanitize_name(host)
+            pretty_model = sanitize_name(model)
+            filename = f"{pretty_host}_{pretty_model}.exe"
+
+            # Правильные заголовки имени файла (RFC 5987)
+            disp = f"attachment; filename={filename}; filename*=UTF-8''{urllib.parse.quote(filename)}"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Disposition", disp)
+            self.send_header("Content-Length", str(os.path.getsize(INSTALLER_BIN)))
+            self.end_headers()
+            # отдаём файл по кусочкам
+            with open(INSTALLER_BIN, "rb") as f:
+                while True:
+                    chunk = f.read(64 * 1024)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+            return
 
             self.send_response(200)
             self.send_header("Content-Type","application/octet-stream")

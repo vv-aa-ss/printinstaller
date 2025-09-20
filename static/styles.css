@@ -1,47 +1,139 @@
-:root{--brand:#2F8FFF;--bg:#F5F7FB;--card:#FFFFFF;--text:#0F172A;--sub:#64748B;--border:#E5E7EB;--ok:#16A34A;--warn:#F59E0B}
-:root.dark{--brand:#6EA8FF;--bg:#121317;--card:#1B1D23;--text:#E5E7EB;--sub:#9CA3AF;--border:#2A2D36}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 'Segoe UI','Inter','Roboto',system-ui,sans-serif}
+:root{
+  --brand:#2F8FFF;
+  --bg:#F5F7FB;
+  --card:#FFFFFF;
+  --text:#0F172A;
+  --sub:#64748B;
+  --border:#E5E7EB;
+  --ok:#16A34A;
+  --warn:#F59E0B;
+
+  /* параметры подсказки */
+  --coach-len: 270px;     /* длина линии */
+  --coach-rot: -48deg;    /* угол наклона вверх */
+  --coach-shift-x: 5px;   /* сдвиг по X */
+  --coach-shift-y: -45px;   /* сдвиг по Y */
+}
+
+:root.dark{
+  --brand:#6EA8FF;
+  --bg:#121317;
+  --card:#1B1D23;
+  --text:#E5E7EB;
+  --sub:#9CA3AF;
+  --border:#2A2D36;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font:14px/1.4 'Segoe UI','Inter','Roboto',system-ui,sans-serif;
+}
+
 .wrap{max-width:1100px;margin:24px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px 16px}
-.title{font-size:22px;margin:0;font-weight:700}.toolbar{display:flex;align-items:center;gap:10px}
+.title{font-size:22px;margin:0;font-weight:700}
+.toolbar{display:flex;align-items:center;gap:10px}
 .input{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);min-width:280px;color:var(--text)}
 .btn{border:none;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;text-align:center}
 .btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--brand)}
 .btn.install{background:var(--brand);color:white;border-radius:12px;padding:8px 14px;min-width:120px}
-.table-card{padding:8px}.table-head,.row{display:grid;grid-template-columns:80px 150px 220px 220px 1fr 200px;align-items:center;gap:8px}
+.table-card{padding:8px}
+.table-head,.row{display:grid;grid-template-columns:80px 150px 220px 220px 1fr 200px;align-items:center;gap:8px}
 .table-head{padding:8px 8px 12px 8px;color:var(--sub);border-bottom:1px solid var(--border);font-weight:600}
 .table-body .row{padding:10px 8px;border-bottom:1px solid rgba(0,0,0,.03)}
-.badge{display:inline-flex;align-items:center;gap:8px;justify-content:center}.dot{width:12px;height:12px;border-radius:50%}
-.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.muted{color:var(--sub)}.footer{display:flex;align-items:center;gap:10px}
-.splash{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.06);backdrop-filter:blur(2px);z-index:10}
-.splash.visible{display:flex}.splash-card{width:360px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.12);text-align:center}
-.logo{font-size:42px;margin-bottom:8px}.splash-title{font-size:20px;font-weight:700;margin-bottom:6px}.splash-sub{color:var(--sub);margin-bottom:12px}
-.progress{width:100%;height:12px;background:var(--border);border-radius:10px;overflow:hidden}.bar{height:100%;width:0;background:var(--brand);transition:width .25s ease}
-.grow{flex:1}@media (max-width:900px){.table-head,.row{grid-template-columns:70px 130px 180px 180px 1fr 180px}}
+.badge{display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.dot{width:12px;height:12px;border-radius:50%}
+.dot.ok{background:var(--ok)}
+.dot.warn{background:var(--warn)}
+.muted{color:var(--sub)}
+.footer{display:flex;align-items:center;gap:10px}
 
-/* Coachmark: теперь вверху справа */
+.splash{
+  position:fixed;inset:0;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,.06);backdrop-filter:blur(2px);z-index:10;
+}
+.splash.visible{display:flex}
+.splash-card{
+  width:360px;background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:20px;
+  box-shadow:0 10px 40px rgba(0,0,0,.12);text-align:center;
+}
+.logo{font-size:42px;margin-bottom:8px}
+.splash-title{font-size:20px;font-weight:700;margin-bottom:6px}
+.splash-sub{color:var(--sub);margin-bottom:12px}
+.progress{width:100%;height:12px;background:var(--border);border-radius:10px;overflow:hidden}
+.bar{height:100%;width:0;background:var(--brand);transition:width .25s ease}
+.grow{flex:1}
+
+@media (max-width:900px){
+  .table-head,.row{grid-template-columns:70px 130px 180px 180px 1fr 180px}
+}
+
+/* === Подсказка (Coachmark) === */
 .coach.hidden{display:none}
 .coach{
-  position:fixed; top:12px; right:12px;   /* было bottom:10px; */
-  z-index:1000; pointer-events:none;
-  display:flex; align-items:flex-start; gap:12px;
-  animation: coach-in .25s ease-out;
+  position:fixed;
+  bottom:24px; right:24px;
+  z-index:1000;
+  pointer-events:none;
+  display:flex; align-items:flex-end; gap:14px;
+  animation:coach-in .25s ease-out;
 }
-@keyframes coach-in{from{transform:translateY(-6px); opacity:0} to{transform:translateY(0); opacity:1}}
+@keyframes coach-in{from{transform:translateY(6px); opacity:0} to{transform:translateY(0); opacity:1}}
+
 .coach-card{
-  background:var(--card); border:1px solid var(--border); border-radius:14px;
-  padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.15);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:12px 16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+  animation:floaty 3s ease-in-out infinite;
 }
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .coach-title{font-weight:800}
 .coach-sub{color:var(--sub)}
-/* Стрелка — вверх-вправо */
-.coach-arrow{transform:rotate(-25deg); opacity:.9}
-.coach-arrow path{fill:none; stroke:var(--brand); stroke-width:4; stroke-linecap:round; stroke-dasharray:6 8; animation:dash 1.5s linear infinite}
-.coach-arrow marker polygon{fill:var(--brand)}
-@keyframes dash{to{stroke-dashoffset:-140}}
-/* «Пульс» рядом с стрелкой (имитирует иконку загрузок) */
+
+/* Длинная изогнутая линия со стрелкой и кружком-стартом */
+.coach-curve{
+  width:var(--coach-len);
+  height:140px;
+
+  /* ключ: управляем поворотом вокруг начала кривой */
+  transform-box:fill-box;        /* для корректного origin у SVG */
+  transform-origin:0% 100%;      /* нижний-левый угол (там, где карточка) */
+
+  transform:translate(var(--coach-shift-x), var(--coach-shift-y)) rotate(var(--coach-rot));
+  opacity:.95;
+}
+
+/* пунктирная кривая */
+.coach-curve .curve{
+  fill:none;
+  stroke:var(--brand);
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-dasharray:10 8;
+  animation:coach-dash 2.2s linear infinite;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.15));
+}
+@keyframes coach-dash{to{stroke-dashoffset:-220}}
+.coach-curve marker polygon{fill:var(--brand)}
+
+/* синий кружок в начале линии — с анимацией «пульс» */
+.curve-dot{
+  fill:var(--brand);
+  stroke:#fff;
+  stroke-width:3;
+  animation:pulse 1.4s ease-out infinite;
+}
+
+/* маленький «пульс» возле иконки загрузок */
 .coach-pulse{
-  width:14px; height:14px; border-radius:50%; background:var(--brand);
+  width:14px;height:14px;border-radius:50%;background:var(--brand);
   box-shadow:0 0 0 0 rgba(47,143,255,.6);
   align-self:flex-start;
   animation:pulse 1.4s ease-out infinite;
@@ -51,3 +143,7 @@
   100%{box-shadow:0 0 0 24px rgba(47,143,255,0)}
 }
 
+/* На маленьких экранах убираем линию, чтобы не мешала */
+@media (max-width:900px), (max-height:500px){
+  .coach-curve{display:none}
+}
