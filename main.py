@@ -7,7 +7,7 @@ import re, hashlib, urllib.parse
 HOST = "0.0.0.0"
 PORT = 8080
 WEB_ROOT = os.path.join(os.path.dirname(__file__), "static")
-# Упрощённый путь: положите свой PrinterInstaller.exe в папку ./publish рядом с server.py
+# путь
 INSTALLER_BIN = os.path.join(os.path.dirname(__file__), "publish", "PrinterInstaller.exe")
 
 SAVED_PRINTERS = [
