@@ -11,10 +11,10 @@ WEB_ROOT = os.path.join(os.path.dirname(__file__), "static")
 INSTALLER_BIN = os.path.join(os.path.dirname(__file__), "publish", "PrinterInstaller.exe")
 
 SAVED_PRINTERS = [
-    {"ip": "192.168.0.190", "host": "KMCC36FF", "model": "ECOSYS P3145dn", "desc": "Экономисты"},
-    {"ip": "192.168.0.105", "host": "KMB68267", "model": "ECOSYS M2040dn",   "desc": "Бухгалтеры"},
-    {"ip": "192.168.0.24", "host": "Canon78c24e", "model": "LBP 223DW",   "desc": "Руководство"},
-    {"ip": "192.168.0.254", "host": "CanonXX", "model": "MF428X",   "desc": "Менеджеры"}
+    {"ip": "192.168.0.190", "host": "KMCC36FF", "model": "ECOSYS P3145dn", "desc": "Экономисты", "can_scan": False},
+    {"ip": "192.168.0.105", "host": "KMB68267", "model": "ECOSYS M2040dn",   "desc": "Бухгалтеры", "can_scan": True},
+    {"ip": "192.168.0.24", "host": "Canon78c24e", "model": "LBP 223DW",   "desc": "Руководство", "can_scan": False},
+    {"ip": "192.168.0.254", "host": "CanonXX", "model": "MF428X",   "desc": "Менеджеры", "can_scan": True}
 ]
 
 GATE_PORTS = [9100, 631, 80]
@@ -89,7 +89,9 @@ class Handler(SimpleHTTPRequestHandler):
             ip = (q.get('ip') or [''])[0]
             host = (q.get('host') or [''])[0]
             model = (q.get('model') or [''])[0]
-            blob = f"{ip}|{host}|{model}"
+            prn = (q.get('printer') or ['1'])[0]
+            scn = (q.get('scanner') or ['1'])[0]
+            blob = f"{ip}|{host}|{model}|P{prn}|S{scn}"
             short = hashlib.sha1(blob.encode('utf-8')).hexdigest()[:6]
 
             pretty_host = sanitize_name(host)

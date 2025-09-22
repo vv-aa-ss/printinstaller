@@ -95,8 +95,7 @@ body{
   gap:12px;
   align-items:center;
 }
-.table-head{
-  padding:12px 16px;
+.table-head{  padding:10px 16px;
   font-weight:700;
   border-bottom:1px solid var(--border);
   background:linear-gradient(180deg, #ffffff, #a5bedd);
@@ -404,4 +403,160 @@ a.btn.install{
   #coach.coach-fixed{ transform:none !important; }
   .coach-line .line{ animation:none !important; stroke-dashoffset:0 !important }
   .coach-line .pulse-ring{ animation:none !important }
+}
+
+/* Колоночные выравнивания v3 */
+.table-head > div{ font-weight:700; }
+
+/* 1) Статус — по центру */
+.table-head > div:nth-child(1),
+.row > .col.status{ text-align:center; }
+
+/* 2–5) Текстовые колонки — влево */
+.table-head > div:nth-child(2),
+.table-head > div:nth-child(3),
+.table-head > div:nth-child(4),
+.table-head > div:nth-child(5),
+.row > .col.ip,
+.row > .col.host,
+.row > .col.model,
+.row > .col.desc{ text-align:left; }
+
+/* 6) Функции — по центру */
+.table-head > div:nth-child(6),
+.row > .col.funcs{ text-align:center; }
+
+/* Чекбоксы аккуратно в колонке */
+.col.funcs{ display:flex; flex-direction:column; gap:6px; align-items:center; }
+.col.funcs .chk{ display:flex; align-items:center; gap:6px; font-size:14px; }
+
+/* 7) Кнопка (столбец действия) */
+.row > .col.action{ display:flex; align-items:center; justify-content:flex-start; }
+
+/* Нежные разделители между строками */
+.table-body .row + .row{
+  border-top:1px solid rgba(0, 0, 0, .06);
+}
+
+
+/* === Compact row + centered alignment tweaks (2025-09-22) === */
+.table-head > div,
+.row .col { 
+  text-align: center;
+}
+
+.row { padding: 6px 12px; }            /* make row a bit tighter */
+.table-head { padding: 8px 16px; }     /* slight tighter header */
+
+.col.action { 
+  display: flex; 
+  gap: 8px; 
+  justify-content: center;             /* center the button in the column */
+}
+
+.col.funcs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.btn.install { 
+  line-height: 1; 
+  padding: 7px 12px; 
+  font-weight: 600; 
+  border-radius: 10px; 
+}
+
+.row .col {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* === Overrides 2025-09-22: remove HOST column and center align === */
+.table-head,.row{
+  grid-template-columns:110px 130px 1fr 1.2fr 160px 140px; /* status, ip, model, desc, funcs, action */
+}
+.table-head > div,
+.row > .col { 
+  text-align: center;
+}
+/* Keep functions column nicely stacked and centered */
+.col.funcs{ display:flex; flex-direction:column; gap:6px; align-items:center; justify-content:center; }
+
+
+.col.funcs .chk{
+  justify-content:flex-start;
+}
+/* === Override 2025-09-22c: чекбоксы с крестиком для disabled === */
+.col.funcs .chk input[type="checkbox"] {
+  appearance: none; /* убираем стандартный чекбокс */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  background: #fff;
+}
+
+/* При checked — обычная галочка */
+.col.funcs .chk input[type="checkbox"]:checked::after {
+  content: "✔";
+  font-size: 12px;
+  color: var(--ok);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+}
+
+/* При disabled и НЕ checked — крестик */
+.col.funcs .chk input[type="checkbox"]:disabled::after {
+  content: "✖";
+  font-size: 12px;
+  color: #999;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+}
+
+/* Серый фон у disabled */
+.col.funcs .chk input[type="checkbox"]:disabled {
+  background: #f2f2f2;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+
+/* === Final alignment fix 2025-09-22 === */
+
+/* Центрируем всё по умолчанию */
+.table-head > div,
+.row .col {
+  text-align: center !important;
+}
+
+/* Функции — выравнивание влево для текста чекбоксов */
+/* Чекбоксы по центру */
+.col.funcs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;    /* ← центрируем по горизонтали */
+  justify-content: center; /* ← центрируем по вертикали */
+  text-align: center;
+}
+
+
+/* Действие — кнопку чуть левее, центр по колонке */
+.col.action {
+  justify-content: center !important;
+  text-align: center !important;
 }

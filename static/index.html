@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Список принтеров</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v20250922a" />
 </head>
 <body>
   <div class="wrap">
@@ -12,7 +12,7 @@
     <header class="card toolbar">
       <h1 class="title">Список принтеров</h1>
       <div class="grow"></div>
-      <input id="search" class="input" placeholder="Поиск (IP / Host / Модель / Описание)" />
+      <input id="search" class="input" placeholder="Поиск (IP / Модель / Описание)" />
       <button id="rescan" class="btn ghost">🔄 Пересканировать</button>
     </header>
 
@@ -21,9 +21,9 @@
       <div class="table-head">
         <div>Статус</div>
         <div>IP</div>
-        <div>Host</div>
         <div>Модель</div>
         <div>Описание</div>
+        <div>Функции</div>
         <div>Действие</div>
       </div>
       <div id="tbody" class="table-body"></div>
@@ -60,7 +60,7 @@
 
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v20250922a"></script>
 </body>
 </html>
 

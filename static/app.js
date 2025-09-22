@@ -9,12 +9,13 @@ const coach = qs('#coach');
 let DATA = [];
 
 /* Рендер одной строки */
+
 function rowTpl(p) {
   const dotClass = p.online ? 'ok' : 'warn';
   const tip = p.online ? 'Найден в сети' : 'Не найден в текущем сканировании';
-  const dl = `/dl/installer?ip=${encodeURIComponent(p.ip||'')}&host=${encodeURIComponent(p.host||'')}&model=${encodeURIComponent(p.model||'')}`;
+  const canScan = !!p.can_scan;
   return `
-  <div class="row" data-blob="${[p.ip,p.host,p.model,p.desc].join(' ').toLowerCase()}">
+  <div class="row" data-blob="${[p.ip,p.model,p.desc].join(' ').toLowerCase()}">
     <div class="col status">
       <span class="badge" title="${tip}">
         <span class="dot ${dotClass}"></span>
@@ -22,15 +23,17 @@ function rowTpl(p) {
       </span>
     </div>
     <div class="col ip">${p.ip||''}</div>
-    <div class="col host">${p.host||''}</div>
     <div class="col model">${p.model||''}</div>
     <div class="col desc">${p.desc||''}</div>
+    <div class="col funcs">
+      <label class="chk"><input type="checkbox" class="cb-prn" checked> <span>Принтер</span></label>
+      <label class="chk"><input type="checkbox" class="cb-scn" ${canScan ? 'checked' : ''} ${canScan ? '' : 'disabled'}> <span>Сканер</span></label>
+    </div>
     <div class="col action">
-      <a class="btn install" href="${dl}" download>⬇ Установить</a>
+      <a class="btn install" href="#" data-ip="${p.ip||''}" data-host="${p.host||''}" data-model="${p.model||''}">⬇ Установить</a>
     </div>
   </div>`;
 }
-
 /* Плавный вход (сверху вниз) — расставляем задержки по индексу */
 function render(list){
   tbody.innerHTML = list.map(rowTpl).join('');
