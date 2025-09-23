@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Printer Installer EXE — Kyocera ECOSYS P3145dn KX
+# Printer Installer EXE
 # Делает: удаление лишних очередей/драйвера, установка драйвера из ресурсов EXE, создание порта и принтера.
 # Запускать от обычного пользователя — сам поднимет UAC.
 
@@ -14,10 +14,10 @@ from pathlib import Path
 
 
 # === Параметры по умолчанию (можно переопределить аргументами командной строки) ===
-PRN_MODEL_NAME = 'Kyocera ECOSYS P3145dn KX'    # Точное имя модели в INF
-PRN_QUEUE_NAME = 'Kyocera ECOSYS P3145dn KX'    # Имя создаваемого принтера
-PORT_NAME      = 'P3145dn'                      # Имя порта (PRNPORT)
-HOST_OR_IP     = 'KMCC36FF'                     # Хост или IP
+PRN_MODEL_NAME = 'Kyocera ECOSYS M2040dn KX'    # Точное имя модели в INF
+PRN_QUEUE_NAME = 'Kyocera ECOSYS M2040dn KX'    # Имя создаваемого принтера
+PORT_NAME      = 'M2040dn'                      # Имя порта (PRNPORT)
+HOST_OR_IP     = 'KMB68267'                     # Хост или IP
 RAW_PORT       = '9100'                         # TCP порт
 ARCH_VER       = '3'                             # -v 3 (тип драйвера)
 ARCH_NAME      = 'Windows x64'                   # -e "Windows x64"
@@ -29,8 +29,9 @@ PRINTERS_TO_REMOVE = [
     'Fax',
     'Microsoft XPS Document Writer',
     'OneNote for Windows 10',
-    'Kyocera ECOSYS P3145dn',
-    'Kyocera ECOSYS P3145dn KX',
+    "Anydesk printer",
+    'Kyocera ECOSYS M2040dn',
+    f'{PRN_MODEL_NAME}',
 ]
 
 LOG_FILE = None
@@ -160,7 +161,7 @@ def extract_driver_to_temp():
 
 def parse_args():
     import argparse
-    parser = argparse.ArgumentParser(description='Автоустановка принтера Kyocera P3145dn KX')
+    parser = argparse.ArgumentParser(description=f'Автоустановка принтера {PRN_MODEL_NAME}')
     parser.add_argument('--queue', default=PRN_QUEUE_NAME, help='Имя очереди (принтера)')
     parser.add_argument('--model', default=PRN_MODEL_NAME, help='Точное имя модели из INF')
     parser.add_argument('--port',  default=PORT_NAME, help='Имя TCP-порта (prnport)')
@@ -180,7 +181,7 @@ def main():
     log(f'Лог: {LOG_FILE}')
 
     if not is_admin():
-        msgbox(f'Будет установлен принтер P3145, ожидайте подтверждения. При необходимости давайте разрешение.',
+        msgbox(f'Будет установлен принтер {PRN_MODEL_NAME}, ожидайте подтверждения. При необходимости давайте разрешение.',
                'Установка', 0x40)
         log('Требуются права администратора — запрашиваю UAC...')
         elevate()
@@ -225,8 +226,13 @@ def main():
         f'cscript //nologo "{prnmngr_vbs}" -a -p "{args.queue}" -m "{args.model}" -r "{args.port}"',
         check=True
     )
+    # 6) Делаем принтер принтером по умолчанию
+    run_cmd(
+        f'cscript //nologo "{prnmngr_vbs}" -t -p "{args.queue}"',
+        check=True
+    )
+    log(f'Принтер «{args.queue}» установлен как принтер по умолчанию.')
 
-    log('Готово! Принтер установлен.')
     try:
         msgbox(f'Принтер «{args.queue}» установлен успешно.', 'Готово', 0x40)
     except Exception:
