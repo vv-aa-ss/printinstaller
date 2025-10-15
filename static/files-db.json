@@ -1,0 +1,10 @@
+{
+  "ECOSYS M2040dn": {
+    "printer": "printer_only",
+    "scanner": "scanner_only", 
+    "all": "printer_and_scanner"
+  },
+  "ECOSYS P3145dn": {
+    "printer": "printer_only"
+  }
+}

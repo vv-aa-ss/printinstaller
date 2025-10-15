@@ -7,8 +7,6 @@ import re, hashlib, urllib.parse
 HOST = "0.0.0.0"
 PORT = 8080
 WEB_ROOT = os.path.join(os.path.dirname(__file__), "static")
-# путь
-INSTALLER_BIN = os.path.join(os.path.dirname(__file__), "publish", "PrinterInstaller.exe")
 
 SAVED_PRINTERS = [
     {"ip": "192.168.0.190", "host": "KMCC36FF", "model": "ECOSYS P3145dn", "desc": "Экономисты", "can_scan": False},
@@ -18,17 +16,20 @@ SAVED_PRINTERS = [
 ]
 
 GATE_PORTS = [9100, 631, 80]
+PLUGIN_PORT = 8081  # порт для плагина
 
-def sanitize_name(s: str, repl='_'):
-    # Разрешим буквы/цифры/пробел/.-_ (кириллица тоже ок для NTFS)
-    s = s.strip()
-    s = re.sub(r'[^\w\s\.\-\u0400-\u04FF]', repl, s)  # кириллица \u0400-\u04FF
-    s = re.sub(r'\s+', '_', s)
-    return s[:50] or 'unknown'
 
 def tcp_open(ip: str, port: int, timeout: float = 0.25) -> bool:
     try:
         with socket.create_connection((ip, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+def check_plugin_installed() -> bool:
+    """Проверяет, установлен ли плагин (слушает ли порт 8081)"""
+    try:
+        with socket.create_connection(("127.0.0.1", PLUGIN_PORT), timeout=0.5):
             return True
     except Exception:
         return False
@@ -73,6 +74,18 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        
+        # Проверка статуса плагина
+        if parsed.path == "/api/plugin-status":
+            plugin_installed = check_plugin_installed()
+            payload = json.dumps({"installed": plugin_installed}, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+            
         if parsed.path == "/api/scan":
             items = scan_saved()
             payload = json.dumps({"items": items}, ensure_ascii=False).encode("utf-8")
@@ -83,30 +96,25 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(payload)
             return
 
-        if parsed.path == "/dl/installer":
-            from urllib.parse import parse_qs
-            q = parse_qs(parsed.query)
-            ip = (q.get('ip') or [''])[0]
-            host = (q.get('host') or [''])[0]
-            model = (q.get('model') or [''])[0]
-            prn = (q.get('printer') or ['1'])[0]
-            scn = (q.get('scanner') or ['1'])[0]
-            blob = f"{ip}|{host}|{model}|P{prn}|S{scn}"
-            short = hashlib.sha1(blob.encode('utf-8')).hexdigest()[:6]
 
-            pretty_host = sanitize_name(host)
-            pretty_model = sanitize_name(model)
-            filename = f"{pretty_host}_{pretty_model}.exe"
-
-            # Правильные заголовки имени файла (RFC 5987)
+        # Скачивание плагина
+        if parsed.path == "/dl/plugin":
+            plugin_path = os.path.join(os.path.dirname(__file__), "static", "publish", "PrinterPlugin.exe")
+            if not os.path.exists(plugin_path):
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"Plugin not found")
+                return
+                
+            filename = "PrinterPlugin.exe"
             disp = f"attachment; filename={filename}; filename*=UTF-8''{urllib.parse.quote(filename)}"
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Disposition", disp)
-            self.send_header("Content-Length", str(os.path.getsize(INSTALLER_BIN)))
+            self.send_header("Content-Length", str(os.path.getsize(plugin_path)))
             self.end_headers()
-            # отдаём файл по кусочкам
-            with open(INSTALLER_BIN, "rb") as f:
+            
+            with open(plugin_path, "rb") as f:
                 while True:
                     chunk = f.read(64 * 1024)
                     if not chunk:
@@ -114,24 +122,114 @@ class Handler(SimpleHTTPRequestHandler):
                     self.wfile.write(chunk)
             return
 
+        # Скачивание драйверов
+        if parsed.path == "/dl/drivers":
+            from urllib.parse import parse_qs
+            q = parse_qs(parsed.query)
+            model = (q.get('model') or [''])[0]
+            
+            if not model:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"Model parameter required")
+                return
+            
+            # Путь к драйверам (вся папка Kyocera)
+            kyocera_path = os.path.join(os.path.dirname(__file__), "installer builder", "Kyocera")
+            if not os.path.exists(kyocera_path):
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"Kyocera drivers not found")
+                return
+            
+            # Создаем архив с драйверами
+            import zipfile
+            import tempfile
+            
+            temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+            temp_zip.close()
+            
+            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk(kyocera_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, kyocera_path)
+                        zipf.write(file_path, arcname)
+            
+            filename = f"{model}_drivers.zip"
+            disp = f"attachment; filename={filename}; filename*=UTF-8''{urllib.parse.quote(filename)}"
+            
             self.send_response(200)
-            self.send_header("Content-Type","application/octet-stream")
-            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-            fs = os.stat(INSTALLER_BIN)
-            self.send_header("Content-Length", str(fs.st_size))
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", disp)
+            self.send_header("Content-Length", str(os.path.getsize(temp_zip.name)))
             self.end_headers()
-            with open(INSTALLER_BIN, "rb") as f:
+            
+            with open(temp_zip.name, "rb") as f:
                 while True:
-                    chunk = f.read(64*1024)
-                    if not chunk: break
+                    chunk = f.read(64 * 1024)
+                    if not chunk:
+                        break
                     self.wfile.write(chunk)
+            
+            # Удаляем временный файл
+            os.unlink(temp_zip.name)
             return
 
         return super().do_GET()
 
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        
+        # Автоматическая установка через плагин
+        if parsed.path == "/api/install":
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                
+                # Отправляем команду плагину
+                plugin_installed = check_plugin_installed()
+                if not plugin_installed:
+                    self.send_response(503)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Plugin not installed"}, ensure_ascii=False).encode("utf-8"))
+                    return
+                
+                # Отправляем запрос плагину
+                import urllib.request
+                import urllib.parse
+                
+                plugin_url = f"http://127.0.0.1:{PLUGIN_PORT}/install"
+                req_data = json.dumps(data).encode('utf-8')
+                
+                req = urllib.request.Request(plugin_url, data=req_data, headers={'Content-Type': 'application/json'})
+                # Увеличиваем таймаут до 2 минут для установки
+                with urllib.request.urlopen(req, timeout=120) as response:
+                    result = response.read().decode('utf-8')
+                
+                # Парсим ответ плагина
+                plugin_result = json.loads(result)
+                
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(result.encode("utf-8"))
+                return
+                
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                error_msg = json.dumps({"error": str(e)}, ensure_ascii=False)
+                self.wfile.write(error_msg.encode("utf-8"))
+                return
+        
+        return super().do_POST()
+
 if __name__ == "__main__":
     os.chdir(os.path.dirname(__file__))
-    print("Installer path:", INSTALLER_BIN, "exists?", os.path.exists(INSTALLER_BIN))
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"★ Web UI: http://127.0.0.1:{PORT}")
     httpd.serve_forever()

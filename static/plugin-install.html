@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Установка плагина - Список принтеров</title>
+  <link rel="stylesheet" href="styles.css?v20250922a" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .plugin-container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .plugin-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 3rem 2rem;
+      box-shadow: 
+        0 20px 40px rgba(0,0,0,0.1),
+        0 0 0 1px rgba(255,255,255,0.2);
+      text-align: center;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .plugin-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    .plugin-icon {
+      font-size: 3.5rem;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+    
+    .plugin-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #1a202c;
+      letter-spacing: -0.025em;
+    }
+    
+    .plugin-description {
+      color: #4a5568;
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
+      font-size: 1rem;
+    }
+    
+    .plugin-steps {
+      text-align: left;
+      margin: 2.5rem 0;
+      padding: 2rem;
+      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.5);
+      position: relative;
+    }
+    
+    .plugin-steps::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, #667eea, #764ba2);
+      border-radius: 0 2px 2px 0;
+    }
+    
+    .plugin-steps h3 {
+      margin: 0 0 1.5rem 0;
+      color: #2d3748;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    
+    .plugin-steps ol {
+      margin: 0;
+      padding-left: 1.5rem;
+    }
+    
+    .plugin-steps li {
+      margin-bottom: 0.75rem;
+      color: #4a5568;
+      line-height: 1.6;
+    }
+    
+    .plugin-steps code {
+      background: rgba(102, 126, 234, 0.1);
+      color: #667eea;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 0.9em;
+    }
+    
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+    
+    .btn-download {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 14px rgba(102, 126, 234, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-download::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    .btn-download:hover::before {
+      left: 100%;
+    }
+    
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-download:active {
+      transform: translateY(0);
+    }
+    
+    .btn-check {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      padding: 0.875rem 1.75rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 14px rgba(72, 187, 120, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-check::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    .btn-check:hover::before {
+      left: 100%;
+    }
+    
+    .btn-check:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(72, 187, 120, 0.4);
+    }
+    
+    .btn-check:active {
+      transform: translateY(0);
+    }
+    
+    .status-message {
+      margin-top: 1.5rem;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .status-success {
+      background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+      color: #22543d;
+      border: 1px solid rgba(72, 187, 120, 0.2);
+    }
+    
+    .status-error {
+      background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+      color: #742a2a;
+      border: 1px solid rgba(245, 101, 101, 0.2);
+    }
+    
+    .status-info {
+      background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%);
+      color: #2a4365;
+      border: 1px solid rgba(66, 153, 225, 0.2);
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .security-note {
+      margin-top: 2.5rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    
+    .security-note p {
+      color: #718096;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+    
+    .security-note strong {
+      color: #4a5568;
+    }
+    
+    @media (max-width: 640px) {
+      .plugin-container {
+        padding: 1rem;
+      }
+      
+      .plugin-card {
+        padding: 2rem 1.5rem;
+      }
+      
+      .plugin-title {
+        font-size: 1.5rem;
+      }
+      
+      .button-group {
+        gap: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="plugin-container">
+      <div class="plugin-card">
+        <div class="plugin-icon">🔌</div>
+        <h1 class="plugin-title">Требуется установка плагина</h1>
+        <p class="plugin-description">
+
+        </p>
+        
+        <div class="plugin-steps">
+          <h3>Инструкция по установке:</h3>
+          <ol>
+            <li>Нажмите кнопку "Скачать плагин" ниже</li>
+            <li>Запустите скачанный файл <code>PrinterPlugin.exe</code></li>
+            <li>Разрешите установку в системе</li>
+            <li>Нажмите "Проверить установку" для продолжения</li>
+          </ol>
+        </div>
+        
+        <div class="button-group">
+          <a href="/dl/plugin" class="btn-download" id="downloadBtn">
+            <span>⬇</span>
+            <span>Скачать плагин</span>
+          </a>
+          <button class="btn-check" id="checkBtn">
+            <span>🔍</span>
+            <span>Проверить установку</span>
+          </button>
+        </div>
+        
+        <div id="statusMessage" class="status-message hidden"></div>
+        
+        <div class="security-note">
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const downloadBtn = document.getElementById('downloadBtn');
+    const checkBtn = document.getElementById('checkBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    function showStatus(message, type = 'info') {
+      statusMessage.textContent = message;
+      statusMessage.className = `status-message status-${type}`;
+      statusMessage.classList.remove('hidden');
+    }
+    
+    function hideStatus() {
+      statusMessage.classList.add('hidden');
+    }
+    
+    async function checkPluginStatus() {
+      try {
+        showStatus('Проверяем статус плагина...', 'info');
+        
+        const response = await fetch('/api/plugin-status', { cache: 'no-store' });
+        const data = await response.json();
+        
+        if (data.installed) {
+          showStatus('✅ Плагин установлен! Переходим к списку принтеров...', 'success');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else {
+          showStatus('❌ Плагин не найден. Установите плагин и попробуйте снова.', 'error');
+        }
+      } catch (error) {
+        showStatus('❌ Ошибка проверки: ' + error.message, 'error');
+      }
+    }
+    
+    checkBtn.addEventListener('click', checkPluginStatus);
+    
+    // Автоматическая проверка при загрузке страницы
+    setTimeout(checkPluginStatus, 1000);
+    
+    // Периодическая проверка каждые 5 секунд
+    setInterval(checkPluginStatus, 5000);
+  </script>
+</body>
+</html>

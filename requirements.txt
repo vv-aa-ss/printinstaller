@@ -1,0 +1,22 @@
+# Основные зависимости для PrintInstaller Web
+# Python 3.10+ рекомендуется
+
+# Для сборки плагина в EXE
+pyinstaller>=6.0.0
+
+# Стандартные библиотеки Python (входят в состав Python)
+# - json
+# - os
+# - sys
+# - time
+# - subprocess
+# - threading
+# - socket
+# - http.server
+# - urllib.parse
+# - tempfile
+# - shutil
+# - logging
+# - re
+# - hashlib
+# - base64

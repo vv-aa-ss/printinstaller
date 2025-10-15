@@ -16,11 +16,6 @@
   --ga-line-thick: 4px;      /* толщина линии */
 
 
-  /* параметры подсказки */
-  --coach-len: 270px;     /* длина линии */
-  --coach-rot: -48deg;    /* угол наклона вверх */
-  --coach-shift-x: 1800px;   /* сдвиг по X */
-  --coach-shift-y: 1090px; /* сдвиг по Y */
 }
 
 *{box-sizing:border-box}
@@ -154,8 +149,6 @@ a.btn.install{
   transition:width .3s ease;
 }
 
-/* Подсказка («коуч»), выстреливает снизу вверх и рисует кривую */
-.coach{
   position:relative;
   margin-top:12px;
   display:flex;
@@ -165,13 +158,11 @@ a.btn.install{
   transform:translateY(14px);
   pointer-events:none;
 }
-.coach.reveal{
   opacity:1;
   transform:translateY(0);
   transition: opacity .35s ease, transform .35s ease;
   pointer-events:auto;
 }
-.coach .bubble{
   background: #1d60b3;
   color:#fff;
   padding:10px 12px;
@@ -183,14 +174,9 @@ a.btn.install{
 }
 @keyframes pop{ from{ transform:scale(.92); } to{ transform:scale(1); } }
 
-.coach-curve{
   position:relative;
-  width:var(--coach-len);
   height:130px;
-  transform: translate(var(--coach-shift-x), var(--coach-shift-y)) rotate(var(--coach-rot));
 }
-.coach-curve svg{ width:100%; height:100%; overflow:visible }
-.coach-curve .curve{
   fill:none;
   stroke:#1F6FE5;
   stroke-width:3;
@@ -198,13 +184,11 @@ a.btn.install{
   stroke-dasharray: 400;
   stroke-dashoffset: 400;
 }
-.coach.reveal .coach-curve .curve{
   animation:draw .7s cubic-bezier(.3,.8,.2,1) .05s forwards;
 }
 @keyframes draw{ to{ stroke-dashoffset:0; }}
 
 /* «пульс» можно включить при желании */
-.coach-pulse{
   position:absolute; right:130px; bottom: 28px;
   width:14px;height:14px;border-radius:50%;background:var(--brand);
   box-shadow:0 0 0 0 rgba(47,143,255,.6);
@@ -230,13 +214,10 @@ a.btn.install{
 
 /* На маленьких экранах убираем линию, чтобы не мешала */
 @media (max-width:900px), (max-height:500px){
-  .coach-curve{display:none}
 }
 
 
 
-/* === Coach (прямая стрелка справа) === */
-#coach.coach-fixed{
   position:fixed;
   inset: auto clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px) auto; /* top right */
   top: clamp(16px, 6vh, 48px);
@@ -248,20 +229,16 @@ a.btn.install{
   opacity:0;
   transform: translateY(40px);
 }
-#coach.coach-fixed.reveal{
   opacity:1;
   transform: translateY(0);
   transition: opacity .45s ease, transform .45s cubic-bezier(.22,1,.36,1);
 }
 
 /* вертикальная прямая линия со стрелкой */
-.coach-line{
   position:relative;
   width: clamp(48px, 5vw, 64px);
   height: clamp(180px, 28vh, 320px);
 }
-.coach-line svg{ width:100%; height:100%; overflow:visible }
-.coach-line .line{
   fill:none;
   stroke: hsl(214deg 85% 48% / 0.95);
   stroke-width: 3.5;
@@ -275,7 +252,6 @@ a.btn.install{
 }
 
 /* пульсирующая точка снизу */
-.coach-line .pulse-dot{
   position:absolute;
   left: 50%;
   bottom: 0;
@@ -294,7 +270,6 @@ a.btn.install{
 }
 
 /* облачко-подсказка справа от линии */
-#coach .bubble{
   max-width: clamp(220px, 24vw, 340px);
   background: white;
   color: var(--text);
@@ -305,30 +280,19 @@ a.btn.install{
   transform-origin: bottom right;
   animation: pop .32s ease both .35s;
 }
-#coach .bubble strong{ color: hsl(214deg 85% 42%); }
 @keyframes pop{ from{ transform:scale(.92); opacity:.0 } to{ transform:scale(1); opacity:1 } }
 
 /* скрыть старую кривую если она была */
-#coach .coach-curve{ display:none !important }
 
 @media (prefers-reduced-motion: reduce){
-  #coach.coach-fixed{ transform:none !important; }
-  .coach-line .line{ animation:none !important; stroke-dashoffset:0 !important }
-  .coach-line .pulse-dot{ animation:none !important }
 }
 
 
 
-/* === Coach positioning knobs === */
 :root{
-  --coach-top: 520px;    /* расстояние от верхнего края окна */
-  --coach-right: 228px;   /* расстояние от правого края окна */
 }
 
-#coach.coach-fixed{
   position:fixed;
-  top: var(--coach-top);
-  right: var(--coach-right);
   left: auto;
   bottom: auto;
   z-index: 2147483000;
@@ -339,20 +303,16 @@ a.btn.install{
   opacity:0;
   transform: translateY(40px);
 }
-#coach.coach-fixed.reveal{
   opacity:1;
   transform: translateY(0);
   transition: opacity .45s ease, transform .45s cubic-bezier(.22,1,.36,1);
 }
 
 /* вертикальная прямая линия со стрелкой */
-.coach-line{
   position:relative;
   width: clamp(48px, 5vw, 64px);
   height: clamp(180px, 28vh, 320px);
 }
-.coach-line svg{ width:100%; height:100%; overflow:visible }
-.coach-line .line{
   fill:none;
   stroke: hsl(214deg 85% 48% / 0.95);
   stroke-width: 3.5;
@@ -364,10 +324,8 @@ a.btn.install{
 @keyframes drawLine{ to{ stroke-dashoffset: 0; } }
 
 /* SVG-версия пульса у основания стрелки — всегда точно в начале линии */
-.coach-line .pulse-core{
   fill: hsl(214deg 85% 48%);
 }
-.coach-line .pulse-ring{
   fill: none;
   stroke: hsl(214deg 85% 48% / .45);
   stroke-width: 2;
@@ -382,7 +340,6 @@ a.btn.install{
 }
 
 /* облачко-подсказка справа от линии */
-#coach .bubble{
   max-width: clamp(220px, 24vw, 340px);
   background: white;
   color: var(--text);
@@ -393,16 +350,11 @@ a.btn.install{
   transform-origin: bottom right;
   animation: pop .32s ease both .35s;
 }
-#coach .bubble strong{ color: hsl(214deg 85% 42%); }
 @keyframes pop{ from{ transform:scale(.92); opacity:.0 } to{ transform:scale(1); opacity:1 } }
 
 /* скрыть старую кривую если вдруг осталась */
-#coach .coach-curve{ display:none !important }
 
 @media (prefers-reduced-motion: reduce){
-  #coach.coach-fixed{ transform:none !important; }
-  .coach-line .line{ animation:none !important; stroke-dashoffset:0 !important }
-  .coach-line .pulse-ring{ animation:none !important }
 }
 
 /* Колоночные выравнивания v3 */

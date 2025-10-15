@@ -35,33 +35,12 @@
       </div>
     </section>
 
-    <!-- Подсказка (появляется снизу вверх, линия рисуется) -->
-    <div id="coach" class="coach coach-fixed hidden">
-      <div class="bubble">
-        Откройте инсталлятор.
-        Если браузер не показывает загрузки — зажмите (Ctrl+J).
-      </div>
-      <div class="coach-line" aria-hidden="true">
-        <svg viewBox="0 0 80 220" preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <marker id="coach-arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto">
-              <polygon points="0 0, 8 4, 0 8" fill="hsl(214deg 85% 48%)"></polygon>
-            </marker>
-          </defs>
-          <!-- линия снизу вверх -->
-          <line class="line" x1="60" y1="210" x2="60" y2="20" marker-end="url(#coach-arrowhead)"/>
-          <!-- пульс в начале линии (внизу) -->
-          <circle class="pulse-core" cx="60" cy="210" r="5" />
-          <circle class="pulse-ring" cx="60" cy="210" r="1" />
-        </svg>
-      </div>
-      </div>
-    </div>
 
   </div>
 
   <script src="js/app.js?v20250922a"></script>
   <script src="js/app-downloads.js"></script>
+  <script src="js/app-plugin.js"></script>
 </body>
 </html>
 
