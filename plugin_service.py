@@ -190,24 +190,41 @@ class PluginHandler(BaseHTTPRequestHandler):
             # Ищем папку с драйверами
             drivers_path = None
             
-            # Ищем папку drivers в корне или подпапках
-            drivers_path = None
+            # Определяем какие INF файлы искать в зависимости от модели
+            if "LBP223" in model.upper():
+                inf_files = ["CNLB0MA64.INF", "CNLB0M.INF"]
+            else:
+                inf_files = ["OEMSETUP.INF"]
             
             # Сначала проверяем корневую папку на наличие INF файла
-            if os.path.exists(os.path.join(temp_dir, "OEMSETUP.INF")):
-                drivers_path = temp_dir
-            else:
-                # Ищем папку drivers
+            for inf_file in inf_files:
+                if os.path.exists(os.path.join(temp_dir, inf_file)):
+                    drivers_path = temp_dir
+                    break
+            
+            if not drivers_path:
+                # Ищем папку drivers или x64/Driver
                 for item in os.listdir(temp_dir):
                     item_path = os.path.join(temp_dir, item)
-                    if os.path.isdir(item_path) and item == "drivers":
-                        drivers_path = item_path
-                        break
-                    elif os.path.isdir(item_path):
-                        # Проверяем, есть ли INF файл в этой подпапке
-                        if os.path.exists(os.path.join(item_path, "OEMSETUP.INF")):
+                    if os.path.isdir(item_path):
+                        # Проверяем папку drivers
+                        if item == "drivers":
                             drivers_path = item_path
                             break
+                        # Проверяем папку x64/Driver для Canon
+                        elif item == "x64":
+                            driver_path = os.path.join(item_path, "Driver")
+                            if os.path.exists(driver_path):
+                                drivers_path = driver_path
+                                break
+                        # Проверяем, есть ли INF файл в этой подпапке
+                        else:
+                            for inf_file in inf_files:
+                                if os.path.exists(os.path.join(item_path, inf_file)):
+                                    drivers_path = item_path
+                                    break
+                            if drivers_path:
+                                break
             
             if not drivers_path:
                 logger.error("No drivers directory found in archive")
@@ -232,6 +249,10 @@ class PluginHandler(BaseHTTPRequestHandler):
                 prn_model_name = 'Kyocera ECOSYS M2040dn KX'
                 prn_queue_name = f'ECOSYS M2040dn ({desc})' if desc else 'ECOSYS M2040dn'
                 port_name = host  # Используем host как имя порта
+            elif "LBP223" in model.upper():
+                prn_model_name = 'Canon Generic Plus UFR II'
+                prn_queue_name = f'LBP223DW ({desc})' if desc else 'LBP223DW'
+                port_name = host  # Используем host как имя порта
             else:
                 prn_model_name = f'Kyocera {model} KX'
                 prn_queue_name = f'{model} ({desc})' if desc else model
@@ -240,7 +261,12 @@ class PluginHandler(BaseHTTPRequestHandler):
             raw_port = '9100'
             arch_ver = '3'
             arch_name = 'Windows x64'
-            inf_name = 'OEMSETUP.INF'
+            
+            # Определяем имя INF файла в зависимости от производителя
+            if "LBP223" in model.upper():
+                inf_name = 'CNLB0MA64.INF'  # Canon INF файл
+            else:
+                inf_name = 'OEMSETUP.INF'   # Kyocera INF файл
             
             # Находим INF файл
             inf_path = None
@@ -252,11 +278,21 @@ class PluginHandler(BaseHTTPRequestHandler):
                 # Ищем INF файл в подпапках
                 for root, dirs, files in os.walk(drivers_path):
                     for file in files:
-                        if file.upper().endswith('.INF'):
+                        if file.upper() == inf_name.upper():
                             inf_path = os.path.join(root, file)
                             break
                     if inf_path:
                         break
+                
+                # Если не нашли конкретный файл, ищем любой INF
+                if not inf_path:
+                    for root, dirs, files in os.walk(drivers_path):
+                        for file in files:
+                            if file.upper().endswith('.INF'):
+                                inf_path = os.path.join(root, file)
+                                break
+                        if inf_path:
+                            break
             
             if not inf_path or not os.path.exists(inf_path):
                 logger.error(f"INF file not found in {drivers_path}")

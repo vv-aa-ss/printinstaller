@@ -6,5 +6,8 @@
   },
   "ECOSYS P3145dn": {
     "printer": "printer_only"
+  },
+  "LBP223DW": {
+    "printer": "printer_only"
   }
 }

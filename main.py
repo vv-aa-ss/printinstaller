@@ -11,7 +11,7 @@ WEB_ROOT = os.path.join(os.path.dirname(__file__), "static")
 SAVED_PRINTERS = [
     {"ip": "192.168.0.190", "host": "KMCC36FF", "model": "ECOSYS P3145dn", "desc": "Экономисты", "can_scan": False},
     {"ip": "192.168.0.105", "host": "KMB68267", "model": "ECOSYS M2040dn",   "desc": "Бухгалтеры", "can_scan": True},
-    {"ip": "192.168.0.24", "host": "Canon78c24e", "model": "LBP 223DW",   "desc": "Руководство", "can_scan": False},
+    {"ip": "192.168.0.24", "host": "Canon78c24e", "model": "LBP223DW",   "desc": "Руководство", "can_scan": False},
     {"ip": "192.168.0.254", "host": "CanonXX", "model": "MF428X",   "desc": "Менеджеры", "can_scan": True}
 ]
 
@@ -134,12 +134,24 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(b"Model parameter required")
                 return
             
-            # Путь к драйверам (вся папка Kyocera)
-            kyocera_path = os.path.join(os.path.dirname(__file__), "installer builder", "Kyocera")
-            if not os.path.exists(kyocera_path):
+            # Определяем путь к драйверам в зависимости от модели
+            drivers_path = None
+            if "ECOSYS" in model.upper() or "P3145" in model.upper() or "M2040" in model.upper():
+                # Kyocera драйверы
+                drivers_path = os.path.join(os.path.dirname(__file__), "installer builder", "Kyocera")
+            elif "LBP223" in model.upper():
+                # Canon драйверы
+                drivers_path = os.path.join(os.path.dirname(__file__), "installer builder", "Canon")
+            else:
                 self.send_response(404)
                 self.end_headers()
-                self.wfile.write(b"Kyocera drivers not found")
+                self.wfile.write(f"Drivers for model {model} not found".encode('utf-8'))
+                return
+            
+            if not os.path.exists(drivers_path):
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(f"Drivers not found at {drivers_path}".encode('utf-8'))
                 return
             
             # Создаем архив с драйверами
@@ -150,10 +162,10 @@ class Handler(SimpleHTTPRequestHandler):
             temp_zip.close()
             
             with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, dirs, files in os.walk(kyocera_path):
+                for root, dirs, files in os.walk(drivers_path):
                     for file in files:
                         file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, kyocera_path)
+                        arcname = os.path.relpath(file_path, drivers_path)
                         zipf.write(file_path, arcname)
             
             filename = f"{model}_drivers.zip"
