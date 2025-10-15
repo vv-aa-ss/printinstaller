@@ -191,7 +191,7 @@ class PluginHandler(BaseHTTPRequestHandler):
             drivers_path = None
             
             # Определяем какие INF файлы искать в зависимости от модели
-            if "LBP223" in model.upper():
+            if "LBP223" in model.upper() or "MF428" in model.upper():
                 inf_files = ["CNLB0MA64.INF", "CNLB0M.INF"]
             else:
                 inf_files = ["OEMSETUP.INF"]
@@ -225,6 +225,26 @@ class PluginHandler(BaseHTTPRequestHandler):
                                     break
                             if drivers_path:
                                 break
+                            
+                            # Если не нашли в корне, ищем в подпапках (например, MF429/x64/Driver)
+                            for subitem in os.listdir(item_path):
+                                subitem_path = os.path.join(item_path, subitem)
+                                if os.path.isdir(subitem_path):
+                                    # Проверяем папку x64/Driver в подпапке
+                                    if subitem == "x64":
+                                        driver_path = os.path.join(subitem_path, "Driver")
+                                        if os.path.exists(driver_path):
+                                            drivers_path = driver_path
+                                            break
+                                    # Проверяем INF файлы в подпапке
+                                    for inf_file in inf_files:
+                                        if os.path.exists(os.path.join(subitem_path, inf_file)):
+                                            drivers_path = subitem_path
+                                            break
+                                if drivers_path:
+                                    break
+                            if drivers_path:
+                                break
             
             if not drivers_path:
                 logger.error("No drivers directory found in archive")
@@ -240,6 +260,7 @@ class PluginHandler(BaseHTTPRequestHandler):
     def install_printer_cmd(self, ip, model, host, desc, drivers_path):
         """Установка принтера через CMD команды (как в kyocera_print.py)"""
         try:
+            logger.info(f"Installing printer: model='{model}', host='{host}', desc='{desc}'")
             # Параметры для установки - используем model, host и desc из SAVED_PRINTERS
             if "P3145" in model.upper():
                 prn_model_name = 'Kyocera ECOSYS P3145dn KX'
@@ -253,17 +274,24 @@ class PluginHandler(BaseHTTPRequestHandler):
                 prn_model_name = 'Canon Generic Plus UFR II'
                 prn_queue_name = f'LBP223DW ({desc})' if desc else 'LBP223DW'
                 port_name = host  # Используем host как имя порта
+                logger.info(f"Using Canon driver: {prn_model_name}")
+            elif "MF428" in model.upper():
+                prn_model_name = 'Canon Generic Plus UFR II'
+                prn_queue_name = f'MF428X ({desc})' if desc else 'MF428X'
+                port_name = host  # Используем host как имя порта
+                logger.info(f"Using Canon driver: {prn_model_name}")
             else:
                 prn_model_name = f'Kyocera {model} KX'
                 prn_queue_name = f'{model} ({desc})' if desc else model
                 port_name = host  # Используем host как имя порта
+                logger.info(f"Using Kyocera driver: {prn_model_name}")
             
             raw_port = '9100'
             arch_ver = '3'
             arch_name = 'Windows x64'
             
             # Определяем имя INF файла в зависимости от производителя
-            if "LBP223" in model.upper():
+            if "LBP223" in model.upper() or "MF428" in model.upper():
                 inf_name = 'CNLB0MA64.INF'  # Canon INF файл
             else:
                 inf_name = 'OEMSETUP.INF'   # Kyocera INF файл

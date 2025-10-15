@@ -9,5 +9,10 @@
   },
   "LBP223DW": {
     "printer": "printer_only"
+  },
+  "MF428X": {
+    "printer": "printer_only",
+    "scanner": "scanner_only",
+    "all": "printer_and_scanner"
   }
 }

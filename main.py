@@ -139,7 +139,7 @@ class Handler(SimpleHTTPRequestHandler):
             if "ECOSYS" in model.upper() or "P3145" in model.upper() or "M2040" in model.upper():
                 # Kyocera драйверы
                 drivers_path = os.path.join(os.path.dirname(__file__), "installer builder", "Kyocera")
-            elif "LBP223" in model.upper():
+            elif "LBP223" in model.upper() or "MF428" in model.upper():
                 # Canon драйверы
                 drivers_path = os.path.join(os.path.dirname(__file__), "installer builder", "Canon")
             else:
